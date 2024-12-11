@@ -5,7 +5,7 @@ const Web3 = require('web3');
 require('dotenv').config();
 
 const signTxRoutes = require('./routes/web3/signTxRoutes');
-const bridgeUserRoutes = require('./routes/bridge/userRoutes');
+const bridgeCustomerRoutes = require('./routes/bridge/customerRoutes');
 
 const app = express();
 
@@ -19,7 +19,7 @@ app.set('port', process.env.PORT || 4000);
 //const web3 = new Web3(process.env.LOCAL_GANACHE_RPC_URL);
 
 app.use('/web3/signTx', signTxRoutes);
-app.use('/bridge/users',bridgeUserRoutes);
+app.use('/bridge/customers',bridgeCustomerRoutes);
 
 app.get('/', (req,res)=>{
     res.json({message:'Welcome to Web3'});
