@@ -31,14 +31,33 @@ const createKYCLlink = async (idempotencyKey, fullName, email, type, apiKey)=>{
                 const queryResponse = await pool.query("INSERT INTO kyc_links(id,idempotency_key,full_name,email,type,kyc_status,tos_status) VALUES (?,?,?,?,?,?,?);",[response.data.id,idempotencyKey,fullName,email,type,response.data.kyc_status,response.data.tos_status]);
                 if(queryResponse[0].affectedRows===1){
                     console.log(`KYC link ${response.data.id} added to table!`);
-                    return {
-                        status:response.status,
-                        msg:'KYC link creation started successfully',
-                        data: response.data
+                    const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, email, endpoint) VALUES (?,?,'/kyc_links');",[idempotencyKey,email]);
+                    if(idempotencyInsertResponse[0].affectedRows===1){
+                        console.log('Record inserted into idempotency_keys table!');
+                        return {
+                            status:response.status,
+                            msg:'Creación de KYC link iniciada exitosamente!',
+                            data: response.data
+                        }
+                    } else{
+                        console.log('Ocurrió un error: Record not inserted into the idempotency_keys table.');
+                        res.status(response.status).json({
+                            status: true,
+                            msg:'Creación de KYC link iniciada exitosamente, pero no se logró guardar la info de la idempotency key en la base de datos',
+                            data:response.data
+                        }); 
                     }
+                } else{
+                    console.log('Ocurrió un error: Record not inserted into the kyc_links table.');
+                    res.status(response.status).json({
+                        status: true,
+                        msg:'Creación de KYC link iniciada exitosamente, pero no se logró guardar la info del kyc_link en la base de datos',
+                        data:response.data
+                    });      
                 }
-                
+
             }
+                
             else if(response.status===422){
                 return {
                         status:response.status,
@@ -61,17 +80,22 @@ const createKYCLlink = async (idempotencyKey, fullName, email, type, apiKey)=>{
                 }
             }
     } catch(e){
-        console.log("Error llamando Bridge API: ",e.response.data);
-        return e.response.data;
+        console.log("Ocurrió un error: ",e.response.data);
+        return {
+            status: false,
+            msg: 'Ocurrió un error',
+            data:e.response.data
+        }
     }
 
 };
 
 //solicitud POST para crear un kyc_link
 
-router.post('/kyc_links', async (req,res)=>{
+router.post('/kyc_links', idempotencyMiddleware, async (req,res)=>{
     const {fullName, email, type} = req.body;
-    const idempotencyKey = req.header("Idempotency-Key");
+    //const idempotencyKey = req.header("Idempotency-Key");
+    const idempotencyKey = req.idempotencyKey;
     //const response = await createKYCLlink(createUUID(),fullName,email,type, process.env.BRIDGE_API_KEY);
     const response = await createKYCLlink(idempotencyKey,fullName,email,type, process.env.BRIDGE_API_KEY);
     if(response.status){
@@ -111,6 +135,7 @@ router.get('/kyc_links/:email', async (req,res)=>{
                 const {kyc_status,tos_status,customer_id} = apiResponse.data;
                 if(dbReponse[0][0].kyc_status !== kyc_status || dbReponse[0][0].tos_status !== tos_status || dbReponse[0][0].customer_id !== customer_id){
                     const updateResponse = await pool.query("UPDATE kyc_links set kyc_status=?,tos_status=?, customer_id=? where id=?;",[kyc_status,tos_status, customer_id,kyc_link_id]);
+                    const updateIdempotencyResponse = await pool.query("UPDATE idempotency_keys set customer_id=? where email=? and endpoint='/kyc_links';",[customer_id,email]);
                     if(updateResponse[0].affectedRows>0){
                         res.status(apiResponse.status).json({
                             status: true,
@@ -189,9 +214,10 @@ router.get('/:customer_id', async (req,res)=>{
 
 //middleware para verificar la idempotency key
 async function idempotencyMiddleware(req, res, next) {
-    const idempotencyKey = req.headers("Idempotency-Key");
+    const idempotencyKey = req.header("Idempotency-Key");
     //const userId = req.user.id; // Assume authentication middleware sets `req.user`
-    const {customer_id}= req.params;
+    const customer_id = req.params.customer_id ? req.params.customer_id : null;
+    const email = req.body.email ? req.body.email : null;
 
     if (!idempotencyKey) {
         return res.status(400).json({ error: "Idempotency key is required" });
@@ -200,20 +226,33 @@ async function idempotencyMiddleware(req, res, next) {
     try {
         // Check if the key exists
         const pool = await connect();
-        const [rows] = await pool.query(
-            "SELECT * FROM kyc_links WHERE idempotency_key = ? AND customer_id = ?",
-            [idempotencyKey, customer_id]
-        );
-
-        if (rows.length > 0) {
-            // If key exists, return the saved response
-            res.status(403).json({
-                status: false,
-                msg: 'Idempotency key alread exists',
-
-            });
+        if(customer_id){
+            const [rows] = await pool.query(
+                "SELECT * FROM idempotency_keys WHERE idempotency_key = ? AND customer_id = ?",
+                [idempotencyKey, customer_id]
+            );
+            if (rows.length > 0) {
+                // If key exists, return the saved response
+                res.status(403).json({
+                    status: false,
+                    msg: 'Idempotency key already exists',
+    
+                });
+            }
+        } else if(email){
+            const [rows] = await pool.query(
+                "SELECT * FROM idempotency_keys WHERE idempotency_key = ? AND email = ?",
+                [idempotencyKey, email]
+            );
+            if (rows.length > 0) {
+                // If key exists, return the saved response
+                res.status(403).json({
+                    status: false,
+                    msg: 'Idempotency key already exists',
+    
+                });
+            }
         }
-
         // Attach idempotency key details to the request for later use
         req.idempotencyKey = idempotencyKey;
         next();
@@ -255,10 +294,41 @@ router.post('/:customer_id/external_accounts',idempotencyMiddleware, async (req,
         if(apiResponse.status === 200 || apiResponse.status===201){
             console.log(apiResponse);
             //falta el codigo para insertar en idempotency_keys y la info de la external account tambien
+            const pool = await connect();
+            const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/:customer_id/external_accounts');",[idempotencyKey,customer_id]);
+            if(idempotencyInsertResponse[0].affectedRows===1){
+                console.log('Record inserted into idempotency_keys table!');
+                const externalAccountInsertResponse = address.street_line_2 !== '' ? await pool.query("INSERT INTO external_accounts (id,bank_name,account_number,routing_number,account_name,account_owner_name,street_line_1,street_line_2,city,state,postal_code,country) VALUES (?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,bank_name,account_number,routing_number,account_name,account_owner_name,address.street_line_1, address.street_line_2, address.city, address.state, address.postal_code, address.country])
+                                                    : await pool.query("INSERT INTO external_accounts (id,bank_name,account_number,routing_number,account_name,account_owner_name,street_line_1,city,state,postal_code,country) VALUES (?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,bank_name,account_number,routing_number,account_name,account_owner_name,address.street_line_1, address.city, address.state, address.postal_code, address.country]) ;
+                if(externalAccountInsertResponse[0].affectedRows===1){
+                    console.log('Record inserted into the external_accounts table!');
+                    res.status(apiResponse.status).json({
+                        status: true,
+                        msg:'External account creada',
+                        data: apiResponse.data
+                    });
+                } else{
+                    console.log('Ocurrió un error: Record not inserted into the external_accounts table.');
+                    res.status(apiResponse.status).json({
+                        status: true,
+                        msg:'External account creada, pero no se logró guardar la info de la external account en la base de datos',
+                    }); 
+                }
+
+            } else{
+                console.log('Ocurrió un error: Record not inserted into the idempotency_keys table.');
+                res.status(apiResponse.status).json({
+                    status: true,
+                    msg:'External account creada, pero no se logró guardar la info de la idempotency key en la base de datos',
+                }); 
+            }
+
+        } else{
             res.status(apiResponse.status).json({
-                status: true,
-                msg:'External account creada',
-            });
+                status: false,
+                msg:'No se pudo crear la external account, ocurrió un error',
+                data: apiResponse.data
+            }); 
         }
     }
     catch(e){
@@ -272,6 +342,7 @@ router.post('/:customer_id/external_accounts',idempotencyMiddleware, async (req,
 
 });
 
+//solicitu GET para generar una idempotency key
 router.get('/keys/createIdempotencyKey',(req,res)=>{
     const key = createUUID();
     res.status(200).json({
