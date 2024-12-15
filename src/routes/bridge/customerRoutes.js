@@ -342,13 +342,14 @@ router.post('/:customer_id/external_accounts',idempotencyMiddleware, async (req,
 
 });
 
-//solicitu GET para generar una idempotency key
+//solicitud GET para generar una idempotency key
 router.get('/keys/createIdempotencyKey',(req,res)=>{
     const key = createUUID();
     res.status(200).json({
         msg: `${key}`
     });
 });
+
 
 
 
