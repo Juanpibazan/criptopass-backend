@@ -1,5 +1,7 @@
 const router = require('express').Router();
 const axios = require('axios');
+const connect = require('../../db/connection');
+require('dotenv').config();
 
 //middleware para verificar la idempotency key
 async function idempotencyMiddleware(req, res, next) {
@@ -60,6 +62,7 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
     const {destination_currency, destination_payment_rail, external_account_id} = destination;
 
     try {
+        const pool = await connect();
         const apiResponse = await axios({
             method:'post',
             url:'https://api.bridge.xyz/v0/transfers',
@@ -86,12 +89,59 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
             }
         });
         if(apiResponse.status===201){
+            console.log('This the response for creating a transfer:',apiResponse.data);
             const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/transfers');",[idempotencyKey,on_behalf_of]);
+            if(idempotencyInsertResponse[0].affectedRows===1){
+                const transferInsertResponse = await pool.query("INSERT INTO transfers(id,state,amount, developer_fee,on_behalf_of,source_currency,source_payment_rail,from_address,destination_currency,destination_payment_rail,external_account_id,to_address) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);",
+                    [apiResponse.data.id,
+                      apiResponse.data.state,
+                      parseFloat(apiResponse.data.amount),
+                      parseFloat(apiResponse.data.developer_fee),
+                      apiResponse.data.on_behalf_of,
+                      source_currency,
+                      source_payment_rail,
+                      from_address,
+                      destination_currency,
+                      destination_payment_rail,
+                      external_account_id,
+                      apiResponse.data.source_deposit_instructions.to_address
+                    ]);
+                if(transferInsertResponse[0].affectedRows===1){
+                        console.log('Se insertaron correctamente los registros en ambas tablas(idempotency_keys y transfers');
+                        return {
+                            status: apiResponse.status,
+                            msg:`Transfer with id ${apiResponse.data.id} initiated and records inserted into db tables`,
+                            data: apiResponse.data
+                        }
+                } else{
+                    console.log('No se insertaron correctamente los registros en ambas tablas(idempotency_keys y transfers');
+                    return {
+                        status: apiResponse.status,
+                        msg:`Transfer with id ${apiResponse.data.id} initiated but records NOT inserted into db tables`,
+                        data: apiResponse.data
+                    }
+                }
+            }
+            else{
+                console.log('No se insertó correctamente el registro en la tabla idempotency_keys');
+                return {
+                    status: apiResponse.status,
+                    msg:`Transfer with id ${apiResponse.data.id} initiated but record NOT inserted into db table idempotency_key`,
+                    data: apiResponse.data
+                }
+            }
+        } else {
+            console.log('Error al iniciar la transfer');
+            return {
+                status: apiResponse.status,
+                msg:`Error while initiating transfer process`,
+                data: apiResponse.data
+            }
         }
     } catch(e){
         console.log(e);
         return {
-            status: false,
+            status: 500,
             msg: 'Ocurrió un error',
             data: e
         }
@@ -100,14 +150,22 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
 };
 
 //solicitud POST para iniciar un nuevo proceso de transferencia off-ramp
-router.post('/',idempotencyMiddleware,(req,res)=>{
-
-    res.status(200).json({
-        status: true,
-        msg: 'Transferencia iniciada'
-    })
-
+router.post('/',idempotencyMiddleware, async (req,res)=>{
+    const idempotencyKey = req.idempotencyKey;
+    const {source, destination, amount, on_behalf_of, developer_fee} = req.body;
+    const transferResponse = await transfer(source, destination, amount, on_behalf_of,developer_fee,process.env.BRIDGE_API_KEY,idempotencyKey);
+        res.status(transferResponse.status).json({
+            status: transferResponse.status===201 ? true : false,
+            msg: transferResponse.msg,
+            data: transferResponse.data
+        });
 });
 
+router.post('/test', (req,res)=>{
+    const {testField} = req.body;
+    res.status(200).json({
+        myDecOrStrField: testField
+    });
+});
 
 module.exports = router;

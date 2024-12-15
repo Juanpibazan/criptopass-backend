@@ -41,19 +41,19 @@ const createKYCLlink = async (idempotencyKey, fullName, email, type, apiKey)=>{
                         }
                     } else{
                         console.log('Ocurrió un error: Record not inserted into the idempotency_keys table.');
-                        res.status(response.status).json({
-                            status: true,
+                        return {
+                            status: response.status,
                             msg:'Creación de KYC link iniciada exitosamente, pero no se logró guardar la info de la idempotency key en la base de datos',
                             data:response.data
-                        }); 
+                        }; 
                     }
                 } else{
                     console.log('Ocurrió un error: Record not inserted into the kyc_links table.');
-                    res.status(response.status).json({
-                        status: true,
+                    return {
+                        status: response.status,
                         msg:'Creación de KYC link iniciada exitosamente, pero no se logró guardar la info del kyc_link en la base de datos',
                         data:response.data
-                    });      
+                    };      
                 }
 
             }
