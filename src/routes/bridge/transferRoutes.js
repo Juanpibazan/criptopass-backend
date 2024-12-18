@@ -57,6 +57,31 @@ async function idempotencyMiddleware(req, res, next) {
     }
 }
 
+//middleware para verificar jwt
+const verifyTokenMiddleware = (req,res,next)=>{
+    const token = req.header('Authorization');
+    if(!token){
+        res.status(401).json({
+            status: false,
+            message: 'ERROR. Token incorrecto o no vigente'
+        });
+    }
+    else{
+        try {
+            const decoded = jwt.verify(token.split(' ')[1],process.env.JWT_SECRET_KEY);
+            console.log(decoded);
+            req.email=token.email;
+            next();
+        }catch(e){
+            res.status(401).json({
+                status: false,
+                message: 'ERROR. Token incorrecto o no vigente'
+            });
+        }
+    }
+  
+};
+
 const transfer = async (source,destination,amount,on_behalf_of,developer_fee,apiKey,idempotencyKey)=>{
     const {source_currency,source_payment_rail,from_address} = source;
     const {destination_currency, destination_payment_rail, external_account_id} = destination;
@@ -150,7 +175,7 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
 };
 
 //solicitud POST para iniciar un nuevo proceso de transferencia off-ramp
-router.post('/',idempotencyMiddleware, async (req,res)=>{
+router.post('/',verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
     const idempotencyKey = req.idempotencyKey;
     const {source, destination, amount, on_behalf_of, developer_fee} = req.body;
     const transferResponse = await transfer(source, destination, amount, on_behalf_of,developer_fee,process.env.BRIDGE_API_KEY,idempotencyKey);
