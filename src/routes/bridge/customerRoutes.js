@@ -132,16 +132,54 @@ router.get('/kyc_links/:email', async (req,res)=>{
             });
             if(apiResponse.status===200){
                 console.log(apiResponse);
-                const {kyc_status,tos_status,customer_id} = apiResponse.data;
+                const {kyc_status,tos_status,customer_id, email, full_name, type} = apiResponse.data;
                 if(dbReponse[0][0].kyc_status !== kyc_status || dbReponse[0][0].tos_status !== tos_status || dbReponse[0][0].customer_id !== customer_id){
                     const updateResponse = await pool.query("UPDATE kyc_links set kyc_status=?,tos_status=?, customer_id=? where id=?;",[kyc_status,tos_status, customer_id,kyc_link_id]);
-                    const updateIdempotencyResponse = await pool.query("UPDATE idempotency_keys set customer_id=? where email=? and endpoint='/kyc_links';",[customer_id,email]);
+                    //const updateIdempotencyResponse = await pool.query("UPDATE idempotency_keys set customer_id=? where email=? and endpoint='/kyc_links';",[customer_id,email]);
                     if(updateResponse[0].affectedRows>0){
-                        res.status(apiResponse.status).json({
-                            status: true,
-                            msg:`Esta es la información para el kyc_link_id: ${apiResponse.data.id}`,
-                            data: apiResponse.data
-                        });
+                        const updateIdempotencyResponse = await pool.query("UPDATE idempotency_keys set customer_id=? where email=? and endpoint='/kyc_links';",[customer_id,email]);
+                        if(updateIdempotencyResponse[0].affectedRows>0){
+                            const foundCustomerResponse = await pool.query("SELECT * FROM customers where id=?;",[customer_id]);
+                            if(foundCustomerResponse[0].length===0){
+                                const insertedCustomerResponse = await pool.query("INSERT INTO customers (id,full_name,email,status,type) VALUES (?,?,?,?,?);",[customer_id,full_name,email,kyc_status,type]);
+                                if(insertedCustomerResponse[0].affectedRows===1){
+                                    res.status(apiResponse.status).json({
+                                        status: true,
+                                        msg:`Esta es la información para el kyc_link_id: ${apiResponse.data.id}`,
+                                        data: apiResponse.data
+                                    });
+                                } else{
+                                    res.status(apiResponse.status).json({
+                                        status: true,
+                                        msg:`Esta es la información para el kyc_link_id: ${apiResponse.data.id}. Hubo un problema al crear customer en la base de datos.`,
+                                        data: apiResponse.data
+                                    });
+                                }
+                                
+                            } else{
+                                const customerApiResponse = await axios({
+                                    method:'get',
+                                    url:`https://api.bridge.xyz/v0/customers/${customer_id}`,
+                                    headers:{
+                                        "Content-Type":"application/json",
+                                        "Api-Key": `${process.env.BRIDGE_API_KEY}`
+                                    }
+                                });
+                                if(customerApiResponse.status=200){
+                                    const {first_name,last_name,new_email} = customerApiResponse.data;
+                                    const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=?;",[first_name,last_name,new_email,kyc_status]);
+                                    if(updatedCustomerResponse[0].affectedRows>=0){
+                                        res.status(apiResponse.status).json({
+                                            status: true,
+                                            msg:`Esta es la información para el kyc_link_id: ${apiResponse.data.id}. Se actualizaron datos del customer en la base de datos.`,
+                                            data: apiResponse.data
+                                        });
+                                    } //aca me quedo
+                                }
+
+                            }
+                        }
+
                     } else {
                         console.log('Error with db')
                         res.status(503).json({
@@ -149,6 +187,12 @@ router.get('/kyc_links/:email', async (req,res)=>{
                             msg:'Database error'
                         });
                     }
+                } else{
+                    res.status(apiResponse.status).json({
+                        status: true,
+                        msg:`Esta es la información para el kyc_link_id: ${apiResponse.data.id}`,
+                        data: apiResponse.data
+                    });
                 }
 
             }
