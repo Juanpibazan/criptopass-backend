@@ -46,9 +46,24 @@ router.post('/register', async (req,res)=>{
             const encryptedPass = await encrypt(password);
             const registeredUser = await pool.query("INSERT INTO criptopass_users(email,password,first_name,last_name,sex,birth_date,type, city, country,verified) VALUES (?,?,?,?,?,?,?,?,?,0);",[email,encryptedPass,first_name,last_name,sex,birth_date,type,city,country]);
             if(registeredUser[0].affectedRows===1){
+                const token = jwt.sign({
+                    email,
+                    password:encryptedPass
+                },process.env.JWT_SECRET_KEY,{expiresIn:'15m'});
                 res.status(201).json({
                     status: true,
-                    msg:'Usuario registrado exitosamente.'
+                    msg:'Usuario registrado exitosamente.',
+                    data:{
+                        user:{
+                            email,
+                            first_name,
+                            last_name,
+                            sex,
+                            type,
+                            verified:0
+                        },
+                        token
+                    }
                 });
 
             } else{
@@ -71,6 +86,7 @@ router.post('/login', async (req,res)=>{
     const {email,password} = req.body;
     try{
         const pool = await connect();
+        const encryptedPass = await encrypt(password);
         const loginResponse = await pool.query("SELECT * FROM criptopass_users where email=?",[email]);
         if(loginResponse[0].length===0){
             res.status(401).json({status: false,message:'ERROR, Usuario inexistente o no vigente'});
@@ -81,12 +97,15 @@ router.post('/login', async (req,res)=>{
             } else{
                 const token = jwt.sign({
                     email,
-                    password
+                    password:encryptedPass
                 },process.env.JWT_SECRET_KEY,{expiresIn:'15m'});
                 res.status(200).json({
                     status: true,
                     msg:'Credenciales correctas',
-                    token
+                    data:{
+                        token,
+                        user: loginResponse[0][0]
+                    }
                 });
             }
         }
