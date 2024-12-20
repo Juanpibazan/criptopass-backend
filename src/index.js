@@ -11,7 +11,7 @@ const criptopassAuthRoutes = require('./routes/criptopass/authRoutes');
 
 const app = express();
 
-app.use(cors({origin:'*'}));
+app.use(cors({origin:['https://criptopass.onrender.com/']}));
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({extended:false}));

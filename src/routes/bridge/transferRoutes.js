@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const axios = require('axios');
 const connect = require('../../db/connection');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 //middleware para verificar la idempotency key

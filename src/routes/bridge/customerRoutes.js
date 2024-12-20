@@ -2,6 +2,7 @@ const router = require('express').Router();
 const {v4: uuidv4} = require('uuid');
 const axios = require('axios');
 require('dotenv').config();
+const jwt = require('jsonwebtoken');
 
 const connect = require('../../db/connection');
 
@@ -241,7 +242,7 @@ router.get('/kyc_links/:email', verifyTokenMiddleware, async (req,res)=>{
                         if(insertedCustomerResponse[0].affectedRows===1 && insertedUserResponse[0].affectedRows===1){
                             res.status(apiResponse.status).json({
                                 status: true,
-                                msg:`Esta es la información para el kyc_link_id: ${apiResponse.data.id}. Se insertóo correctamente el record del customer.`,
+                                msg:`Esta es la información para el kyc_link_id: ${apiResponse.data.id}. Se insertó correctamente el record del customer.`,
                                 data: apiResponse.data
                             });
                         } else{
@@ -262,7 +263,8 @@ router.get('/kyc_links/:email', verifyTokenMiddleware, async (req,res)=>{
                             }
                         });
                         if(customerApiResponse2.status=200){
-                            const {first_name,last_name,new_email} = customerApiResponse2.data;
+                            const {first_name,last_name} = customerApiResponse2.data;
+                            const new_email = customerApiResponse2.data.email;
                             const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=?;",[first_name,last_name,new_email,kyc_status]);
                             if(updatedCustomerResponse[0].affectedRows>=0){
                                 res.status(apiResponse.status).json({
@@ -284,11 +286,11 @@ router.get('/kyc_links/:email', verifyTokenMiddleware, async (req,res)=>{
                                 data: {kyc_link_data:apiResponse.data, customer_error: customerApiResponse2.data}
                             });
                         }
-                        res.status(apiResponse.status).json({
+                        /*res.status(apiResponse.status).json({
                             status: true,
                             msg:`Esta es la información para el kyc_link_id: ${apiResponse.data.id}`,
                             data: apiResponse.data
-                        });
+                        });*/
                     }
 
                 }
