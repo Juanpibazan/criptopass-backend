@@ -12,7 +12,7 @@ const criptopassAuthRoutes = require('./routes/criptopass/authRoutes');
 const app = express();
 
 app.use(cors({
-    origin:['https://criptopass.onrender.com'],
+    origin:['https://criptopass.onrender.com','http://localhost:4000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
     credentials: true // Si usas cookies o headers de autenticación
     }));
