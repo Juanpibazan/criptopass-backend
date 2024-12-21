@@ -495,6 +495,35 @@ router.get('/keys/createIdempotencyKey',(req,res)=>{
 });
 
 
+//solicitud GET para traer todos los destinatarios asociados a un miso customer_id de origen
+
+router.get('/destinatarios/:customer_id',verifyTokenMiddleware, async (req,res)=>{
+    const {customer_id} = req.params;
+    try{
+        const pool = await connect();
+        const destinatariosResponse = await pool.query("SELECT * FROM destinatarios where origin_cutomer_id=?;",[customer_id]);
+        if(destinatariosResponse[0].length===0){
+            res.status(200).json({
+                status:true,
+                msg:'No existen destinatarios registrados para este cliente de origen.',
+                data:destinatariosResponse[0]
+            });
+        } else{
+            res.status(200).json({
+                status:true,
+                msg:`Existen ${destinatariosResponse[0].length} destinatarios registrados para este cliente de origen.`,
+                data:destinatariosResponse[0]
+            });
+        }
+    } catch(e){
+        res.status(500).json({
+            status:false,
+            msg:'Ocurrio un error.',
+            data: e
+        });
+    }
+});
+
 
 
 
