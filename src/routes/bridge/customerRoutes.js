@@ -501,7 +501,7 @@ router.get('/destinatarios/:customer_id',verifyTokenMiddleware, async (req,res)=
     const {customer_id} = req.params;
     try{
         const pool = await connect();
-        const destinatariosResponse = await pool.query("SELECT * FROM destinatarios where origin_cutomer_id=?;",[customer_id]);
+        const destinatariosResponse = await pool.query("SELECT * FROM destinatarios where origin_customer_id=?;",[customer_id]);
         if(destinatariosResponse[0].length===0){
             res.status(200).json({
                 status:true,
