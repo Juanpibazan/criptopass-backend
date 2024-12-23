@@ -187,6 +187,49 @@ router.post('/',verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
         });
 });
 
+//solicitud GET para traer todas las transferencias correspondientes a un usuario
+router.get('/:customer_id',verifyTokenMiddleware , async (req,res)=>{
+    const {customer_id} = req.params;
+    try{
+        const transfersResponse = await axios({
+            method:'get',
+            url:`https://api.bridge.xyz/v0/customers/${customer_id}/transfers`,
+            headers:{
+                "Content-Type":"application/json",
+                "Api-Key": process.env.BRIDGE_API_KEY
+            }
+        });
+        if(transfersResponse.status===200){
+            if(transfersResponse.data.length===0){
+                res.status(200).json({
+                    status: true,
+                    msg:`No hay transferencias comenzadas por el usuario ${customer_id}`,
+                    data:transfersResponse.data
+                });
+            }
+            res.status(200).json({
+                status: true,
+                msg:`${transfersResponse.count} Transferencias comenzadas por el usuario ${customer_id}`,
+                data:transfersResponse.data
+            });
+        } else{
+            res.status(transfersResponse.status).json({
+                status:false,
+                msg:'Ocurrió un error',
+                data: transfersResponse.message
+            });
+        }
+    } catch(e){
+        res.status(500).json({
+            status:false,
+            msg:'Ocurrió un error',
+            data: e
+        });
+    }
+});
+
+
+
 router.post('/test', (req,res)=>{
     const {testField} = req.body;
     res.status(200).json({
