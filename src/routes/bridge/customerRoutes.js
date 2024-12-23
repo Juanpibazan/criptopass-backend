@@ -530,18 +530,18 @@ router.get('/find/:email', verifyTokenMiddleware, async (req,res)=>{
     const {email} = req.params;
     try{
         const pool = await connect();
-        const foundCustomerResponse = await pool.query("SELECT * FROM customers where email=?;",[email]);
+        const foundCustomerResponse = await pool.query("SELECT * FROM customers where email like ?;",[`%${email}%`]);
         if(foundCustomerResponse[0].length===0){
             res.status(200).json({
                 status:true,
                 msg:'No se encontraron coincidencias',
-                data:foundCustomerResponse[0][0]
+                data:foundCustomerResponse[0]
             });
         } else{
             res.status(200).json({
                 status:true,
                 msg:`Se encontró al siguiente usuario: ${foundCustomerResponse[0][0].first_name} ${foundCustomerResponse[0][0].last_name}`,
-                data:foundCustomerResponse[0][0]
+                data:foundCustomerResponse[0]
             });
         }
     }
