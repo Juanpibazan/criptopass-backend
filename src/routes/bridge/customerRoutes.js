@@ -316,7 +316,7 @@ router.get('/kyc_links/:email', verifyTokenMiddleware, async (req,res)=>{
 
 });
 
-//solicitud GET para retornar info referente a un customer específico
+//solicitud GET para retornar info referente a un customer_id específico
 
 router.get('/:customer_id', verifyTokenMiddleware,async (req,res)=>{
     const {customer_id} = req.params;
@@ -519,6 +519,36 @@ router.get('/destinatarios/:customer_id',verifyTokenMiddleware, async (req,res)=
         res.status(500).json({
             status:false,
             msg:'Ocurrio un error.',
+            data: e
+        });
+    }
+});
+
+//solicitud GET para encontrar customers a partir de su email
+
+router.get('/find/:email', verifyTokenMiddleware, async (req,res)=>{
+    const {email} = req.params;
+    try{
+        const pool = await connect();
+        const foundCustomerResponse = await pool.query("SELECT * FROM customers where email=?;",[email]);
+        if(foundCustomerResponse[0].length===0){
+            res.status(200).json({
+                status:true,
+                msg:'No se encontraron coincidencias',
+                data:foundCustomerResponse[0][0]
+            });
+        } else{
+            res.status(200).json({
+                status:true,
+                msg:`Se encontró al siguiente usuario: ${foundCustomerResponse[0][0].first_name} ${foundCustomerResponse[0][0].last_name}`,
+                data:foundCustomerResponse[0][0]
+            });
+        }
+    }
+    catch(e){
+        res.status(500).json({
+            status: false,
+            msg:'Ocurrió un error',
             data: e
         });
     }
