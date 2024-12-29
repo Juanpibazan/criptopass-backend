@@ -498,7 +498,20 @@ router.get('/keys/createIdempotencyKey',(req,res)=>{
 router.post('/destinatarios',verifyTokenMiddleware, async (req,res)=>{
     const {destiny_external_account_id,destiny_customer_id, destiny_customer_alias,origin_customer_id} = req.body;
     try{
-        const pool = connect();
+        const pool = await connect();
+        const destinatarioInsertedResponse = await pool.query("INSERT INTO destinatarios (destiny_external_account_id,destiny_customer_id,destiny_customer_alias,origin_customer_id) VALUES(?,?,?,?);",[destiny_external_account_id,destiny_customer_id,destiny_customer_alias,origin_customer_id]);
+        if(destinatarioInsertedResponse[0].affectedRows>0){
+            res.status(201).json({
+                status: true,
+                msg: `Se agregó correctamente al destinatario: ${destiny_customer_alias}`,
+            });
+        } else{
+            res.status(400).json({
+                status: false,
+                msg:`Ocurrió un error al agregar al destinatario: ${destiny_customer_alias}`
+            });
+            
+        }
     }
     catch(e){
         res.status(500).json({
