@@ -494,6 +494,22 @@ router.get('/keys/createIdempotencyKey',(req,res)=>{
     });
 });
 
+//solicitud POST para agregar destinatario
+router.post('/destinatarios',verifyTokenMiddleware, async (req,res)=>{
+    const {destiny_external_account_id,destiny_customer_id, destiny_customer_alias,origin_customer_id} = req.body;
+    try{
+        const pool = connect();
+    }
+    catch(e){
+        res.status(500).json({
+            status: false,
+            msg:'Ocurrió un error',
+            data: e
+        });
+
+    }
+});
+
 
 //solicitud GET para traer todos los destinatarios asociados a un miso customer_id de origen
 
@@ -530,7 +546,7 @@ router.get('/find/:email', verifyTokenMiddleware, async (req,res)=>{
     const {email} = req.params;
     try{
         const pool = await connect();
-        const foundCustomerResponse = await pool.query("SELECT * FROM customers where email like ?;",[`%${email}%`]);
+        const foundCustomerResponse = await pool.query("Select a.*, b.id as external_account_id, b.bank_name , b.routing_number, b.account_number, b.account_name as account_type ,b.account_owner_name from customers a inner join external_accounts b on a.id=b.customer_id  where a.email like ?;",[`%${email}%`]);
         if(foundCustomerResponse[0].length===0){
             res.status(200).json({
                 status:true,
