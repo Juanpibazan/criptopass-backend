@@ -84,7 +84,9 @@ const verifyTokenMiddleware = (req,res,next)=>{
 };
 
 const transfer = async (source,destination,amount,on_behalf_of,developer_fee,apiKey,idempotencyKey)=>{
-    const {source_currency,source_payment_rail,from_address} = source;
+    const {source_currency,source_payment_rail,
+        //from_address
+    } = source;
     const {destination_currency, destination_payment_rail, external_account_id} = destination;
 
     try {
@@ -96,7 +98,7 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
                 source:{
                     currency:source_currency,
                     payment_rail: source_payment_rail,
-                    from_address
+                    //from_address
 
                 },
                 destination:{
@@ -106,7 +108,10 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
                 },
                 amount,
                 on_behalf_of,
-                developer_fee
+                developer_fee,
+                features:{
+                    allow_any_from_address:true
+                }
             },
             headers:{
                 "Content-Type":"application/json",
@@ -118,7 +123,7 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
             console.log('This the response for creating a transfer:',apiResponse.data);
             const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/transfers');",[idempotencyKey,on_behalf_of]);
             if(idempotencyInsertResponse[0].affectedRows===1){
-                const transferInsertResponse = await pool.query("INSERT INTO transfers(id,state,amount, developer_fee,on_behalf_of,source_currency,source_payment_rail,from_address,destination_currency,destination_payment_rail,external_account_id,to_address) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);",
+                const transferInsertResponse = await pool.query("INSERT INTO transfers(id,state,amount, developer_fee,on_behalf_of,source_currency,source_payment_rail,destination_currency,destination_payment_rail,external_account_id,to_address) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);",
                     [apiResponse.data.id,
                       apiResponse.data.state,
                       parseFloat(apiResponse.data.amount),
@@ -126,7 +131,7 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
                       apiResponse.data.on_behalf_of,
                       source_currency,
                       source_payment_rail,
-                      from_address,
+                      //from_address,
                       destination_currency,
                       destination_payment_rail,
                       external_account_id,
@@ -206,12 +211,32 @@ router.get('/:customer_id',verifyTokenMiddleware , async (req,res)=>{
                     msg:`No hay transferencias comenzadas por el usuario ${customer_id}`,
                     data:transfersResponse.data
                 });
+            } else{
+                const pool = await connect();
+                const transfersDbResponse = await pool.query("Select id, state from transfers where on_behalf_of=?;",[customer_id]);
+                if(transfersDbResponse[0].length===transfersResponse.length){
+                    let transfersNotUpdated=[];
+                    for (let index = 0; index < transfersDbResponse.length; index++) {
+                        if(transfersResponse[index].state !== transfersDbResponse[0][index].state){
+                            transfersNotUpdated.push({id:transfersResponse[index].id,state:transfersResponse[index].state});
+                            const transferUpdatedResponse = await pool.query("UPDATE transfers set state=? where id=?;",[transfersResponse[index].state,transfersResponse[index].id]);
+                            if(transferUpdatedResponse[0].affectedRows===1){
+                                console.log(`Transferencia ${transfersResponse[index].id} actualizada!`);
+                            } else{
+                                console.log(`Transferencia ${transfersResponse[index].id} no pudo ser actualizado.`);
+                            }
+                        } 
+                    }
+                } else{
+                    console.log('Hay diferencia en cantidad de transferencias entre api y base de datos.');
+                }
+                res.status(200).json({
+                    status: true,
+                    msg:`${transfersResponse.count} Transferencias comenzadas por el usuario ${customer_id}`,
+                    data:transfersResponse.data
+                });
             }
-            res.status(200).json({
-                status: true,
-                msg:`${transfersResponse.count} Transferencias comenzadas por el usuario ${customer_id}`,
-                data:transfersResponse.data
-            });
+
         } else{
             res.status(transfersResponse.status).json({
                 status:false,
