@@ -123,7 +123,7 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
             console.log('This the response for creating a transfer:',apiResponse.data);
             const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/transfers');",[idempotencyKey,on_behalf_of]);
             if(idempotencyInsertResponse[0].affectedRows===1){
-                const transferInsertResponse = await pool.query("INSERT INTO transfers(id,state,amount, developer_fee,on_behalf_of,source_currency,source_payment_rail,destination_currency,destination_payment_rail,external_account_id,to_address) VALUES(?,?,?,?,?,?,?,?,?,?,?,?);",
+                const transferInsertResponse = await pool.query("INSERT INTO transfers(id,state,amount, developer_fee,on_behalf_of,source_currency,source_payment_rail,destination_currency,destination_payment_rail,external_account_id,to_address) VALUES(?,?,?,?,?,?,?,?,?,?,?);",
                     [apiResponse.data.id,
                       apiResponse.data.state,
                       parseFloat(apiResponse.data.amount),
@@ -131,7 +131,6 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
                       apiResponse.data.on_behalf_of,
                       source_currency,
                       source_payment_rail,
-                      //from_address,
                       destination_currency,
                       destination_payment_rail,
                       external_account_id,
