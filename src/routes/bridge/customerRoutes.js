@@ -35,123 +35,10 @@ const verifyTokenMiddleware = (req,res,next)=>{
   
 };
 
-const createKYCLlink = async (idempotencyKey, fullName, email, type, apiKey)=>{
-    try {
-        const response = await axios({
-            method:'post',
-            url:'https://api.bridge.xyz/v0/kyc_links',
-            data:{
-                full_name: fullName,
-                email,
-                type
-            },
-            headers:{
-                "Content-Type":"application/json",
-                "Api-Key": `${apiKey}`,
-                "Idempotency-Key": `${idempotencyKey}`
-            }
-         });
-            if(response.status===200 || response.status===201){
-                console.log(response.data);
-                const pool = await connect();
-                const queryResponse = await pool.query("INSERT INTO kyc_links(id,idempotency_key,full_name,email,type,kyc_link,kyc_status,tos_status) VALUES (?,?,?,?,?,?,?);",[response.data.id,idempotencyKey,fullName,email,type,response.data.kyc_link,response.data.kyc_status,response.data.tos_status]);
-                if(queryResponse[0].affectedRows===1){
-                    console.log(`KYC link ${response.data.id} added to table!`);
-                    const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, email, endpoint) VALUES (?,?,'/kyc_links');",[idempotencyKey,email]);
-                    if(idempotencyInsertResponse[0].affectedRows===1){
-                        console.log('Record inserted into idempotency_keys table!');
-                        return {
-                            status:response.status,
-                            msg:'Creación de KYC link iniciada exitosamente!',
-                            data: response.data
-                        }
-                    } else{
-                        console.log('Ocurrió un error: Record not inserted into the idempotency_keys table.');
-                        return {
-                            status: response.status,
-                            msg:'Creación de KYC link iniciada exitosamente, pero no se logró guardar la info de la idempotency key en la base de datos',
-                            data:response.data
-                        }; 
-                    }
-                } else{
-                    console.log('Ocurrió un error: Record not inserted into the kyc_links table.');
-                    return {
-                        status: response.status,
-                        msg:'Creación de KYC link iniciada exitosamente, pero no se logró guardar la info del kyc_link en la base de datos',
-                        data:response.data
-                    };      
-                }
-
-            }
-                
-            else if(response.status===422){
-                return {
-                        status:response.status,
-                        msg:`Idempotency key expired. Please create a new one`,
-                        data: response.data
-                }
-                
-            }else if(response.status.toString().startsWith('4') && response.status!==422){
-                return {
-                    status:response.status,
-                    msg:`KYC link creation process with errors: ${response.data}`,
-                    data: response.data
-                }
-            }
-            else{
-                return {
-                    status:response.status,
-                    msg:`KYC link creation process with errors: ${response.data}`,
-                    data: response.data
-                }
-            }
-    } catch(e){
-        console.log("Ocurrió un error: ",e.response.data);
-        const {data} = e.response.data.msg;
-        if(data.code==='duplicate_record'){
-            const {email,customer_id,full_name,id,kyc_link,kyc_status,tos_status,type} = data.existing_kyc_link;
-            const existingKYC = handleExistingKYC(email,idempotencyKey,id,customer_id,kyc_link,kyc_status,type,full_name,tos_status);
-            return {
-                status: existingKYC.status,
-                msg: existingKYC.msg,
-                data
-            }
-        }
-        return {
-            status: false,
-            msg: 'Ocurrió un error--',
-            data:e.response.data.msg.data
-        }
-    }
-};
-
-//solicitud POST para crear un kyc_link
-
-router.post('/kyc_links', verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
-    const {fullName, email, type} = req.body;
-    //const idempotencyKey = req.header("Idempotency-Key");
-    const idempotencyKey = req.idempotencyKey;
-    //const response = await createKYCLlink(createUUID(),fullName,email,type, process.env.BRIDGE_API_KEY);
-    const response = await createKYCLlink(idempotencyKey,fullName,email,type, process.env.BRIDGE_API_KEY);
-    if(response.status){
-        res.status(response.status).json({
-            status:response.status===200 ? true : false,
-            msg:response.msg,
-            data:response.data
-        });
-    } else {
-        res.status(500).json({
-            status:false,
-            msg: response
-        });
-    }
-
-});
-
-const handleExistingKYC = async (email,idempotencyKey,kyc_link_id,customer_id,kyc_link,kyc_status,type,full_name,tos_status)=>{
+const handleExistingKYC = async (email,idempotencyKey,kyc_link_id,customer_id,kyc_link,tos_link,kyc_status,type,full_name,tos_status)=>{
     try {
         const pool = await connect();
-        const insertedKYCResponse = await pool.query("INSERT INTO kyc_links(id,idempotency_key,full_name,email,type,kyc_link,kyc_status,tos_status) VALUES (?,?,?,?,?,?,?);",[kyc_link_id,idempotencyKey,full_name,email,type,kyc_link,kyc_status,tos_status]);
+        const insertedKYCResponse = await pool.query("INSERT INTO kyc_links(id,idempotency_key,full_name,email,type,kyc_link,tos_link,kyc_status,tos_status) VALUES (?,?,?,?,?,?,?,?,?);",[kyc_link_id,idempotencyKey,full_name,email,type,kyc_link,tos_link,kyc_status,tos_status]);
         if(insertedKYCResponse[0].affectedRows===1){
             const existingIdempotencyKey = await pool.query("SELECT * FROM idempotency_keys where email=? and endpoint='/kyc_links';",[email]);
             if(existingIdempotencyKey[0].length>0){
@@ -232,6 +119,119 @@ const handleExistingKYC = async (email,idempotencyKey,kyc_link_id,customer_id,ky
         };
     }
 };
+
+const createKYCLlink = async (idempotencyKey, fullName, email, type, apiKey)=>{
+    try {
+        const response = await axios({
+            method:'post',
+            url:'https://api.bridge.xyz/v0/kyc_links',
+            data:{
+                full_name: fullName,
+                email,
+                type
+            },
+            headers:{
+                "Content-Type":"application/json",
+                "Api-Key": `${apiKey}`,
+                "Idempotency-Key": `${idempotencyKey}`
+            }
+         });
+            if(response.status===200 || response.status===201){
+                console.log(response.data);
+                const pool = await connect();
+                const queryResponse = await pool.query("INSERT INTO kyc_links(id,idempotency_key,full_name,email,type,kyc_link,kyc_status,tos_status) VALUES (?,?,?,?,?,?,?);",[response.data.id,idempotencyKey,fullName,email,type,response.data.kyc_link,response.data.kyc_status,response.data.tos_status]);
+                if(queryResponse[0].affectedRows===1){
+                    console.log(`KYC link ${response.data.id} added to table!`);
+                    const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, email, endpoint) VALUES (?,?,'/kyc_links');",[idempotencyKey,email]);
+                    if(idempotencyInsertResponse[0].affectedRows===1){
+                        console.log('Record inserted into idempotency_keys table!');
+                        return {
+                            status:response.status,
+                            msg:'Creación de KYC link iniciada exitosamente!',
+                            data: response.data
+                        }
+                    } else{
+                        console.log('Ocurrió un error: Record not inserted into the idempotency_keys table.');
+                        return {
+                            status: response.status,
+                            msg:'Creación de KYC link iniciada exitosamente, pero no se logró guardar la info de la idempotency key en la base de datos',
+                            data:response.data
+                        }; 
+                    }
+                } else{
+                    console.log('Ocurrió un error: Record not inserted into the kyc_links table.');
+                    return {
+                        status: response.status,
+                        msg:'Creación de KYC link iniciada exitosamente, pero no se logró guardar la info del kyc_link en la base de datos',
+                        data:response.data
+                    };      
+                }
+
+            }
+                
+            else if(response.status===422){
+                return {
+                        status:response.status,
+                        msg:`Idempotency key expired. Please create a new one`,
+                        data: response.data
+                }
+                
+            }else if(response.status.toString().startsWith('4') && response.status!==422){
+                return {
+                    status:response.status,
+                    msg:`KYC link creation process with errors: ${response.data}`,
+                    data: response.data
+                }
+            }
+            else{
+                return {
+                    status:response.status,
+                    msg:`KYC link creation process with errors: ${response.data}`,
+                    data: response.data
+                }
+            }
+    } catch(e){
+        console.log("Ocurrió un error: ",e.response.data);
+        const {data} = e.response;
+        if(data.code==='duplicate_record'){
+            const {email,customer_id,full_name,id,kyc_link,tos_link,kyc_status,tos_status,type} = data.existing_kyc_link;
+            const existingKYC = handleExistingKYC(email,idempotencyKey,id,customer_id,kyc_link,tos_link,kyc_status,type,full_name,tos_status);
+            return {
+                status: existingKYC.status,
+                msg: existingKYC.msg,
+                data
+            }
+        }
+        return {
+            status: false,
+            msg: 'Ocurrió un error--',
+            data:e.response.data.msg.data
+        }
+    }
+};
+
+//solicitud POST para crear un kyc_link
+
+router.post('/kyc_links', verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
+    const {fullName, email, type} = req.body;
+    //const idempotencyKey = req.header("Idempotency-Key");
+    const idempotencyKey = req.idempotencyKey;
+    //const response = await createKYCLlink(createUUID(),fullName,email,type, process.env.BRIDGE_API_KEY);
+    const response = await createKYCLlink(idempotencyKey,fullName,email,type, process.env.BRIDGE_API_KEY);
+    if(response.status){
+        res.status(response.status).json({
+            status:response.status===200 ? true : false,
+            msg:response.msg,
+            data:response.data
+        });
+    } else {
+        res.status(500).json({
+            status:false,
+            msg: response
+        });
+    }
+
+});
 
 //solicitud GET para retornar info referente a un kyc_link_id específico
 
