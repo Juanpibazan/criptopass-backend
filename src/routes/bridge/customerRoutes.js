@@ -235,8 +235,8 @@ const handleExistingKYC = async (email,idempotencyKey,kyc_link_id,customer_id,ky
 
 //solicitud GET para retornar info referente a un kyc_link_id específico
 
-router.get('/kyc_links/:email', verifyTokenMiddleware, async (req,res)=>{
-    const {email} = req.params;
+router.get('/kyc_links/', verifyTokenMiddleware, async (req,res)=>{
+    const {email} = req.query;
     try {
         const pool = await connect();
         const dbReponse = await pool.query("SELECT * FROM kyc_links where email=? order by created_at desc limit 1;",[email]);
