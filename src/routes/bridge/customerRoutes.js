@@ -533,10 +533,10 @@ router.post('/:customer_id/external_accounts',verifyTokenMiddleware,idempotencyM
             console.log(apiResponse);
             //falta el codigo para insertar en idempotency_keys y la info de la external account tambien
             const pool = await connect();
-            const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/:customer_id/external_accounts');",[idempotencyKey,customer_id]);
+            const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/external_accounts');",[idempotencyKey,customer_id]);
             if(idempotencyInsertResponse[0].affectedRows===1){
                 console.log('Record inserted into idempotency_keys table!');
-                const externalAccountInsertResponse = address.street_line_2 !== '' ? await pool.query("INSERT INTO external_accounts (id,bank_name,account_number,routing_number,account_name,account_owner_name,street_line_1,street_line_2,city,state,postal_code,country) VALUES (?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,bank_name,account_number,routing_number,account_name,account_owner_name,address.street_line_1, address.street_line_2, address.city, address.state, address.postal_code, address.country])
+                const externalAccountInsertResponse = address.street_line_2 !== '' ? await pool.query("INSERT INTO external_accounts (id,bank_name,account_number,routing_number,account_name,account_owner_name,street_line_1,street_line_2,city,state,postal_code,country,customer_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,bank_name,account_number,routing_number,account_name,account_owner_name,address.street_line_1, address.street_line_2, address.city, address.state, address.postal_code, address.country,customer_id])
                                                     : await pool.query("INSERT INTO external_accounts (id,bank_name,account_number,routing_number,account_name,account_owner_name,street_line_1,city,state,postal_code,country) VALUES (?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,bank_name,account_number,routing_number,account_name,account_owner_name,address.street_line_1, address.city, address.state, address.postal_code, address.country]) ;
                 if(externalAccountInsertResponse[0].affectedRows===1){
                     console.log('Record inserted into the external_accounts table!');
