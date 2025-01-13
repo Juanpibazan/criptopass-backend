@@ -194,10 +194,11 @@ router.post('/',verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
 //solicitud GET para traer todas las transferencias correspondientes a un usuario
 router.get('/:customer_id',verifyTokenMiddleware , async (req,res)=>{
     const {customer_id} = req.params;
+    const {limit} = req.query;
     try{
         const transfersResponse = await axios({
             method:'get',
-            url:`https://api.bridge.xyz/v0/customers/${customer_id}/transfers?limit=50`,
+            url:`https://api.bridge.xyz/v0/customers/${customer_id}/transfers?limit=${limit}`,
             headers:{
                 "Content-Type":"application/json",
                 "Api-Key": process.env.BRIDGE_API_KEY
