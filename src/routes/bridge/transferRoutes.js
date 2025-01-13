@@ -197,7 +197,7 @@ router.get('/:customer_id',verifyTokenMiddleware , async (req,res)=>{
     try{
         const transfersResponse = await axios({
             method:'get',
-            url:`https://api.bridge.xyz/v0/customers/${customer_id}/transfers`,
+            url:`https://api.bridge.xyz/v0/customers/${customer_id}/transfers?limit=50`,
             headers:{
                 "Content-Type":"application/json",
                 "Api-Key": process.env.BRIDGE_API_KEY
