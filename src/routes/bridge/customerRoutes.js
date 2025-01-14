@@ -73,7 +73,7 @@ const handleExistingKYC = async (email,idempotencyKey,kyc_link_id,customer_id,ky
                                 });
                                 if(customerApiResponse.status=200){
                                     const {first_name,last_name,new_email} = customerApiResponse.data;
-                                    const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=?;",[first_name,last_name,new_email,kyc_status]);
+                                    const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=? where id=?;",[first_name,last_name,new_email,kyc_status,customer_id]);
                                     if(updatedCustomerResponse[0].affectedRows>0){
                                         return {
                                             status: 200,
@@ -289,7 +289,7 @@ router.get('/kyc_links/', verifyTokenMiddleware, async (req,res)=>{
                                 });
                                 if(customerApiResponse.status=200){
                                     const {first_name,last_name,new_email} = customerApiResponse.data;
-                                    const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=?;",[first_name,last_name,new_email,kyc_status]);
+                                    const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=? where id=?;",[first_name,last_name,new_email,kyc_status,customer_id]);
                                     if(updatedCustomerResponse[0].affectedRows>=0){
                                         res.status(apiResponse.status).json({
                                             status: true,
@@ -359,7 +359,7 @@ router.get('/kyc_links/', verifyTokenMiddleware, async (req,res)=>{
                         if(customerApiResponse2.status=200){
                             const {first_name,last_name} = customerApiResponse2.data;
                             const new_email = customerApiResponse2.data.email;
-                            const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=?;",[first_name,last_name,new_email,kyc_status]);
+                            const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=? where id=?;",[first_name,last_name,new_email,kyc_status,customer_id]);
                             if(updatedCustomerResponse[0].affectedRows>=0){
                                 res.status(apiResponse.status).json({
                                     status: true,
