@@ -5,6 +5,7 @@ const Web3 = require('web3');
 require('dotenv').config();
 
 const signTxRoutes = require('./routes/web3/signTxRoutes');
+const testRoutes = require('./routes/web3/testRoutes');
 const bridgeCustomerRoutes = require('./routes/bridge/customerRoutes');
 const bridgeTransferRoutes = require('./routes/bridge/transferRoutes');
 const criptopassAuthRoutes = require('./routes/criptopass/authRoutes');
@@ -25,6 +26,7 @@ app.set('port', process.env.PORT || 4000);
 //const web3 = new Web3(process.env.LOCAL_GANACHE_RPC_URL);
 
 app.use('/web3/signTx', signTxRoutes);
+app.use('/web3/testUSDT', testRoutes);
 app.use('/bridge/customers',bridgeCustomerRoutes);
 app.use('/bridge/transfers',bridgeTransferRoutes);
 app.use('/criptopass/auth',criptopassAuthRoutes);
