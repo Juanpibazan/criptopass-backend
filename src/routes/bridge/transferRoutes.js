@@ -205,15 +205,15 @@ router.get('/:customer_id',verifyTokenMiddleware , async (req,res)=>{
             }
         });
         if(transfersResponse.status===200){
-            if(transfersResponse.data.length===0){
+            if(transfersResponse.data.code==='not_found'){
                 res.status(200).json({
                     status: true,
                     msg:`No hay transferencias comenzadas por el usuario ${customer_id}`,
-                    data:transfersResponse.data
+                    data:[]
                 });
-            } else{
+            } else {
                 const pool = await connect();
-                const transfersDbResponse = await pool.query("Select id, state from transfers where on_behalf_of=?;",[customer_id]);
+                const transfersDbResponse = await pool.query("Select id, state from transfers where on_behalf_of=? order by created_at desc;",[customer_id]);
                 if(transfersDbResponse[0].length===transfersResponse.length){
                     let transfersNotUpdated=[];
                     for (let index = 0; index < transfersDbResponse.length; index++) {
@@ -232,16 +232,16 @@ router.get('/:customer_id',verifyTokenMiddleware , async (req,res)=>{
                 }
                 res.status(200).json({
                     status: true,
-                    msg:`${transfersResponse.count} Transferencias comenzadas por el usuario ${customer_id}`,
-                    data:transfersResponse.data
+                    msg:`${transfersResponse.data.count} Transferencias comenzadas por el usuario ${customer_id}`,
+                    data:transfersResponse.data.data
                 });
             }
 
         } else{
-            res.status(transfersResponse.status).json({
+            res.status(transfersResponse.data.status).json({
                 status:false,
                 msg:'Ocurrió un error',
-                data: transfersResponse.message
+                data: transfersResponse.data.message
             });
         }
     } catch(e){
