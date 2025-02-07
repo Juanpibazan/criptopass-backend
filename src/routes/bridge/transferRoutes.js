@@ -69,7 +69,7 @@ const verifyTokenMiddleware = (req,res,next)=>{
     }
     else{
         try {
-            const decoded = jwt.verify(token.split(' ')[1],process.env.JWT_SECRET_KEY);
+            const decoded = jwt.verify(token.split(' ')[1],process.env.JWT_SECRET);
             console.log(decoded);
             req.email=token.email;
             next();

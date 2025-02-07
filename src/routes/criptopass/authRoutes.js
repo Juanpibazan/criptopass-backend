@@ -17,7 +17,7 @@ const verifyTokenMiddleware = (req,res,next)=>{
     }
     else{
         try {
-            const decoded = jwt.verify(token.split(' ')[1],process.env.JWT_SECRET_KEY);
+            const decoded = jwt.verify(token.split(' ')[1],process.env.JWT_SECRET);
             console.log(decoded);
             req.email=token.email;
             next();
@@ -86,9 +86,10 @@ router.post('/login', async (req,res)=>{
     const {email,password} = req.body;
     try{
         const pool = await connect();
-        console.log("POOL:",pool );
+        //console.log("POOL:",pool );
         const encryptedPass = await encrypt(password);
         const loginResponse = await pool.query("SELECT * FROM criptopass_users where email=?",[email]);
+        console.log('LOGIN RESPONSE: ',loginResponse);
         if(loginResponse[0].length===0){
             res.status(401).json({status: false,message:'ERROR, Usuario inexistente o no vigente'});
         } else{

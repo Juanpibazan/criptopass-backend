@@ -45,12 +45,12 @@ contract Criptopass {
         newUserName.hasName = true;
     }
 
-    function transferUSDT(address payable _to, uint256 _amount, string memory _message) public returns (bool){
+    function transferUSDT(address _to, uint256 _amount, string memory _message) public returns (bool){
         IERC20 token = IERC20(usdtTokenAddress);
         console.log(_amount);
-        require(token.balanceOf(msg.sender) >= _amount,"El balance del usuario no es suficiente.");
+        require((token.balanceOf(msg.sender) >= _amount),"El balance del usuario no es suficiente.");
         bool success = token.transfer(_to, _amount);
-        //require(success,"La transferencia fallo.");
+        require(success,"La transferencia fallo.");
         transferRecord memory newSend;
         newSend.action = '-';
         newSend.sender = msg.sender;
@@ -72,36 +72,44 @@ contract Criptopass {
 
     }
 
-        function transferUSDT2(address payable _to, uint256 _amount, string memory _message) public returns (bool){
+        function transferUSDT2(address _to, uint256 _amount, string memory _message) public returns (bool){
         IERC20 token = IERC20(usdtTokenAddress);
         console.log(_amount);
         uint256 myBalance = token.balanceOf(msg.sender);
-        bool verified = myBalance >= _amount;
-        require(verified, "Saldo insuficiente");
-        token.transfer(_to, _amount);
-        //require(success,"La transferencia fallo.");
-        transferRecord memory newSend;
-        newSend.action = '-';
-        newSend.sender = msg.sender;
-        newSend.recipient = _to;
-        newSend.amount = _amount;
-        newSend.message = _message;
-        transferHistory[msg.sender].push(newSend);
+        if(myBalance >= _amount){
+            bool success = token.transfer(_to, _amount);
+            if(success){
+                transferRecord memory newSend;
+                newSend.action = '-';
+                newSend.sender = msg.sender;
+                newSend.recipient = _to;
+                newSend.amount = _amount;
+                newSend.message = _message;
+                transferHistory[msg.sender].push(newSend);
 
-        transferRecord memory newReceive;
-        newReceive.action = '+';
-        newReceive.sender = msg.sender;
-        newReceive.recipient = _to;
-        newReceive.amount = _amount;
-        newReceive.message = _message;
-        transferHistory[_to].push(newReceive);
+                transferRecord memory newReceive;
+                newReceive.action = '+';
+                newReceive.sender = msg.sender;
+                newReceive.recipient = _to;
+                newReceive.amount = _amount;
+                newReceive.message = _message;
+                transferHistory[_to].push(newReceive);
 
-        emit TransferUSDT(msg.sender, _to, _amount, _message, verified);
-        return true;
+                emit TransferUSDT(msg.sender, _to, _amount, _message, success);
+                return true;
+            } else{
+                console.log("La trasferfencia fallo");
+                return false;
+            }
+
+        } else{
+            console.log("Saldo insuficiente");
+            return false;
+        }
 
     }
 
-    function transferUSDT3(address payable _to, uint256 _amount, string memory _message) public returns (bool) {
+    function transferUSDT3(address _to, uint256 _amount, string memory _message) public returns (bool) {
         IERC20 token = IERC20(usdtTokenAddress);
 
         // Debug: Log sender's balance and the amount
@@ -121,7 +129,7 @@ contract Criptopass {
         );
         console.log("Transfer success:", success);
         //console.log("Return data:", returnData);
-        require(success, "Token transfer failed.");
+        //require(success, "Token transfer failed.");
 
         // Update transfer history
         transferRecord memory newSend;
@@ -142,6 +150,26 @@ contract Criptopass {
 
         emit TransferUSDT(msg.sender, _to, _amount, _message, success);
         return success;
+    }
+
+    event TransferSuccess(address indexed from, address indexed to, uint256 amount);
+    event TransferFailure(address indexed from, address indexed to, uint256 amount, string reason);
+
+    function transferUSDT4(address _to, uint256 _amount) public returns (bool){
+        IERC20 token = IERC20(usdtTokenAddress);
+        try token.transfer(_to, _amount) returns (bool result) {
+            require(result, "Transfer returned false");
+            emit TransferSuccess(msg.sender, _to, _amount);
+            return true;
+        } catch Error(string memory reason) {
+            // Catch a revert with a custom error message
+            emit TransferFailure(msg.sender,_to, _amount, reason);
+            return false;
+        } catch (bytes memory) {
+            // Catch a generic revert (no error message or low-level call failure)
+            emit TransferFailure(msg.sender, _to, _amount, "Transfer failed with unknown reason");
+            return false;
+        }
     }
 
     function approveExpenditure(address _spender, uint256 _amount) public returns (bool){

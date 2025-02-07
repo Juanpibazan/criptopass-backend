@@ -21,7 +21,7 @@ app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({extended:false}));
 
-app.set('port', process.env.PORT || 4000);
+app.set('port', process.env.PORT || 5000);
 
 //const web3 = new Web3(process.env.LOCAL_GANACHE_RPC_URL);
 
