@@ -398,6 +398,11 @@ router.get('/kyc_links/', verifyTokenMiddleware, async (req,res)=>{
                     data: apiResponse.data
                 });
             }
+        } else{
+            res.status(504).json({
+                status: false,
+                msg:'No KYC link record found in db.'
+            });
         }
     } catch(e){
         console.log('Ocurrió un error: ',e);
