@@ -83,7 +83,7 @@ const verifyTokenMiddleware = (req,res,next)=>{
   
 };
 
-const transfer = async (source,destination,amount,on_behalf_of,developer_fee,apiKey,idempotencyKey)=>{
+const transfer = async (source,destination,amount,on_behalf_of,developer_fee,from_customer_id,apiKey,idempotencyKey)=>{
     const {source_currency,source_payment_rail,
         //from_address
     } = source;
@@ -123,7 +123,7 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
             console.log('This the response for creating a transfer:',apiResponse.data);
             const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/transfers');",[idempotencyKey,on_behalf_of]);
             if(idempotencyInsertResponse[0].affectedRows===1){
-                const transferInsertResponse = await pool.query("INSERT INTO transfers(id,state,amount, developer_fee,on_behalf_of,source_currency,source_payment_rail,destination_currency,destination_payment_rail,external_account_id,to_address) VALUES(?,?,?,?,?,?,?,?,?,?,?);",
+                const transferInsertResponse = await pool.query("INSERT INTO transfers(id,state,amount, developer_fee,on_behalf_of,source_currency,source_payment_rail,destination_currency,destination_payment_rail,external_account_id,to_address,final_amount,from_customer_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);",
                     [apiResponse.data.id,
                       apiResponse.data.state,
                       parseFloat(apiResponse.data.amount),
@@ -134,7 +134,9 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
                       destination_currency,
                       destination_payment_rail,
                       external_account_id,
-                      apiResponse.data.source_deposit_instructions.to_address
+                      apiResponse.data.source_deposit_instructions.to_address,
+                      apiResponse.data.receipt.final_amount,
+                      from_customer_id
                     ]);
                 if(transferInsertResponse[0].affectedRows===1){
                         console.log('Se insertaron correctamente los registros en ambas tablas(idempotency_keys y transfers');
@@ -182,8 +184,8 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,api
 //solicitud POST para iniciar un nuevo proceso de transferencia off-ramp
 router.post('/',verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
     const idempotencyKey = req.idempotencyKey;
-    const {source, destination, amount, on_behalf_of, developer_fee} = req.body;
-    const transferResponse = await transfer(source, destination, amount, on_behalf_of,developer_fee,process.env.BRIDGE_API_KEY,idempotencyKey);
+    const {source, destination, amount, on_behalf_of, developer_fee,from_customer_id} = req.body;
+    const transferResponse = await transfer(source, destination, amount, on_behalf_of,developer_fee,from_customer_id,process.env.BRIDGE_API_KEY,idempotencyKey);
         res.status(transferResponse.status).json({
             status: transferResponse.status===201 ? true : false,
             msg: transferResponse.msg,

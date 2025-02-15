@@ -399,9 +399,10 @@ router.get('/kyc_links/', verifyTokenMiddleware, async (req,res)=>{
                 });
             }
         } else{
-            res.status(504).json({
-                status: false,
-                msg:'No KYC link record found in db.'
+            res.status(204).json({
+                status: true,
+                msg:'No KYC link record found in db.',
+                data: 'not started'
             });
         }
     } catch(e){
