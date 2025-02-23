@@ -193,7 +193,7 @@ router.post('/',verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
         });
 });
 
-//solicitud GET para traer todas las transferencias correspondientes a un usuario
+//solicitud GET para traer todas las transferencias correspondientes al usuario que recibio la transferencia
 router.get('/:customer_id',verifyTokenMiddleware , async (req,res)=>{
     const {customer_id} = req.params;
     const {limit} = req.query;
@@ -210,7 +210,7 @@ router.get('/:customer_id',verifyTokenMiddleware , async (req,res)=>{
             if(transfersResponse.data.code==='not_found'){
                 res.status(200).json({
                     status: true,
-                    msg:`No hay transferencias comenzadas por el usuario ${customer_id}`,
+                    msg:`No hay transferencias recibidas por el usuario ${customer_id}`,
                     data:[]
                 });
             } else {
@@ -256,6 +256,37 @@ router.get('/:customer_id',verifyTokenMiddleware , async (req,res)=>{
 });
 
 
+//solicitud GET para traer todas las transferencias correspondientes al usuario que inicio las transferencias
+router.get('/senders/:customer_id',verifyTokenMiddleware, async (req,res)=>{
+    const {customer_id} = req.params;
+    var {limit} = req.query;
+    limit = parseIntnt(limit);
+    try{
+        const pool = await connect();
+        const transfersDbResponse = await pool.query("SELECT * FROM transfers WHERE from_customer_id=? order by created_at desc limit ?;",[customer_id,limit]);
+        if(transfersDbResponse[0].length>0){
+            res.status(200).json({
+                status: true,
+                msg:`${transfersDbResponse[0].length} Transferencias comenzadas por el usuario ${customer_id}`,
+                data:transfersDbResponse[0]
+                });
+            }
+            else{
+            res.status(200).json({
+                status:true,
+                msg:`No existen transferencias comenzadas por el usuario ${customer_id}`,
+                data: []
+            });
+        }
+    } catch(e){
+        res.status(500).json({
+            status:false,
+            msg:'Ocurrió un error',
+            data: e
+        });
+    }
+});
+
 
 router.post('/test', (req,res)=>{
     const {testField} = req.body;
@@ -263,5 +294,6 @@ router.post('/test', (req,res)=>{
         myDecOrStrField: testField
     });
 });
+
 
 module.exports = router;
