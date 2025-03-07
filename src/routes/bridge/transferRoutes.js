@@ -265,6 +265,30 @@ router.get('/senders/:customer_id',verifyTokenMiddleware, async (req,res)=>{
         const pool = await connect();
         const transfersDbResponse = await pool.query("SELECT * FROM transfers WHERE from_customer_id=? order by created_at desc limit ?;",[customer_id,limit]);
         if(transfersDbResponse[0].length>0){
+            var awaitingFundsTransfers = transfersDbResponse[0].filter((item)=>item.state==='awaiting_funds');
+            var transfersNotUpdated=[];
+            for (let index = 0; index < awaitingFundsTransfers.length; index++) {
+                const apiResponse = await axios({
+                    method:'get',
+                    url:`https://api.bridge.xyz/v0/transfers/${awaitingFundsTransfers[index].id}`,
+                    headers:{
+                        "Content-Type":"application/json",
+                        "Api-Key": process.env.BRIDGE_API_KEY
+                    }
+                });
+                const transferResponse = apiResponse.data;
+                if(apiResponse.status===200){
+                    if(transferResponse.state !== awaitingFundsTransfers[index].state){
+                        transfersNotUpdated.push({id:transferResponse.id,state:transferResponse.state});
+                        const transferUpdatedResponse = await pool.query("UPDATE transfers set state=? where id=?;",[transferResponse.state,transferResponse.id]);
+                        if(transferUpdatedResponse[0].affectedRows===1){
+                            console.log(`Transferencia ${transferResponse.id} actualizada!`);
+                        } else{
+                            console.log(`Transferencia ${transferResponse.id} no pudo ser actualizada.`);
+                        }
+                    }
+                } 
+            }
             res.status(200).json({
                 status: true,
                 msg:`${transfersDbResponse[0].length} Transferencias comenzadas por el usuario ${customer_id}`,
