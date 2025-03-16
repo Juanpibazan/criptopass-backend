@@ -288,6 +288,7 @@ router.get('/kyc_links/', verifyTokenMiddleware, async (req,res)=>{
                                     }
                                 });
                                 if(customerApiResponse.status=200){
+                                    console.log('INFO ABOUT CUSTOMER: ',customerApiResponse.data);
                                     const {first_name,last_name,new_email} = customerApiResponse.data;
                                     const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=? where id=?;",[first_name,last_name,new_email,kyc_status,customer_id]);
                                     if(updatedCustomerResponse[0].affectedRows>=0){
@@ -454,6 +455,56 @@ router.get('/:customer_id', verifyTokenMiddleware,async (req,res)=>{
         });
     }
 
+});
+
+//solicitud GET para crear un kyc link con el objetivo de habilitar transferencias SEPA
+router.get('/sepa_kyc_links/:customer_id', verifyTokenMiddleware,async (req,res)=>{
+    const {customer_id} = req.params;
+    try{
+        const pool = await connect();
+        const generatedSepaKycLink = await axios({
+            method:'get',
+            url:`https://api.bridge.xyz/v0/customers/${customer_id}/kyc_link?endorsement=sepa`,
+            headers:{
+                "Content-Type":"application/json",
+                "Api-Key": `${process.env.BRIDGE_API_KEY}`
+            }
+        });
+        if(generatedSepaKycLink.status===200){
+            const updatedKycLinkRow = await pool.query("UPDATE kyc_links set sepa_kyc_link=? where customer_id=?;",[generatedSepaKycLink.data.url,customer_id]);
+            if(updatedKycLinkRow[0].affectedRows>0){
+                res.status(200).json({
+                    status: true,
+                    msg:`KYC Link generado para SEPA para el customer: ${customer_id}`,
+                    data:{
+                        sepa_kyc_link: generatedSepaKycLink.data.url
+                    }
+                });
+            }
+            else{
+                res.status(503).json({
+                    status: true,
+                    msg:'Error al guardar el KYC link en la base de datos!',
+                    data:{
+                        sepa_kyc_link: generatedSepaKycLink.data.url
+                    }
+                });
+            }
+        } else{
+            res.status(generatedSepaKycLink.status).json({
+                status: false,
+                msg: 'Error al generar el KYC Link para SEPA!',
+                data: generatedSepaKycLink.data
+            });
+        }
+    }
+    catch(e){
+        res.status(500).json({
+            status: false,
+            msg:'Ocurrió un error',
+            data: e
+        });
+    }
 });
 
 //middleware para verificar la idempotency key
