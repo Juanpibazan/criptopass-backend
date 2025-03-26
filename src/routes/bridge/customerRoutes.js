@@ -561,7 +561,7 @@ async function idempotencyMiddleware(req, res, next) {
     }
 }
 
-//solicitud POST para crear una external account para un cliente específico 
+//solicitud POST para crear una US external account para un cliente específico 
 router.post('/:customer_id/external_accounts',verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
     const idempotencyKey = req.idempotencyKey;
     const {customer_id} = req.params;
@@ -600,6 +600,87 @@ router.post('/:customer_id/external_accounts',verifyTokenMiddleware,idempotencyM
                     res.status(apiResponse.status).json({
                         status: true,
                         msg:'External account creada',
+                        data: apiResponse.data
+                    });
+                } else{
+                    console.log('Ocurrió un error: Record not inserted into the external_accounts table.');
+                    res.status(apiResponse.status).json({
+                        status: true,
+                        msg:'External account creada, pero no se logró guardar la info de la external account en la base de datos',
+                    }); 
+                }
+
+            } else{
+                console.log('Ocurrió un error: Record not inserted into the idempotency_keys table.');
+                res.status(apiResponse.status).json({
+                    status: true,
+                    msg:'External account creada, pero no se logró guardar la info de la idempotency key en la base de datos',
+                }); 
+            }
+
+        } else{
+            res.status(apiResponse.status).json({
+                status: false,
+                msg:'No se pudo crear la external account, ocurrió un error',
+                data: apiResponse.data
+            }); 
+        }
+    }
+    catch(e){
+        console.log('Ocurrió un error: ',e);
+        res.status(500).json({
+            status:false,
+            msg:`Ocurrió un error`,
+            data: e
+        });
+    }
+
+});
+
+
+//solicitud POST para crear una SEPA external account para un cliente específico 
+router.post('/:customer_id/external_accounts/sepa',verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
+    const idempotencyKey = req.idempotencyKey;
+    const {customer_id} = req.params;
+    const {bic,account_number,account_type, account_owner_type,first_name,last_name,business_name,account_owner_name,address,iso_country_code} = req.body;
+    try{
+        const apiResponse = await axios({
+            method:'post',
+            url:`https://api.bridge.xyz/v0/customers/${customer_id}/external_accounts`,
+            data:{
+                currency:'eur',
+                account_type,
+                iban:{
+                    account_number,
+                    bic,
+                    country: iso_country_code
+                },
+                account_owner_type,
+                first_name,
+                last_name,
+                business_name: business_name !=='' ? business_name : null,
+                account_owner_name,
+                address
+            },
+            headers:{
+                "Content-Type":"application/json",
+                "Api-Key": `${process.env.BRIDGE_API_KEY}`,
+                "Idempotency-Key": `${idempotencyKey}`
+            }
+        });
+        if(apiResponse.status === 200 || apiResponse.status===201){
+            console.log(apiResponse);
+            //falta el codigo para insertar en idempotency_keys y la info de la external account tambien
+            const pool = await connect();
+            const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/external_accounts');",[idempotencyKey,customer_id]);
+            if(idempotencyInsertResponse[0].affectedRows===1){
+                console.log('Record inserted into idempotency_keys table!');
+                const externalAccountInsertResponse = await pool.query("INSERT INTO external_accounts (id,account_number,account_owner_name,street_line_1,street_line_2,city,state,postal_code,country,customer_id,account_owner_type,first_name,last_name,business_name,iso_country_code,bic) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,account_number,account_owner_name,address.street_line_1, address.street_line_2, address.city, address.state, address.postal_code, address.country,customer_id,account_owner_type,first_name,last_name,business_name,iso_country_code,bic]);
+                if(externalAccountInsertResponse[0].affectedRows===1){
+                    console.log('Record inserted into the external_accounts table!');
+                    res.status(apiResponse.status).json({
+                        status: true,
+                        msg:'External account SEPA creada',
                         data: apiResponse.data
                     });
                 } else{
