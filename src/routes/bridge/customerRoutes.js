@@ -283,7 +283,7 @@ const createKYCLlink = async (idempotencyKey, fullName, email, type, endorsement
 
 //solicitud POST para crear un kyc_link
 
-router.post('/kyc_links', verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
+router.post('/kyc_links/', verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
     const {fullName, email, type, endorsements} = req.body;
     //const idempotencyKey = req.header("Idempotency-Key");
     const idempotencyKey = req.idempotencyKey;
