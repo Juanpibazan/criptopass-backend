@@ -74,7 +74,8 @@ const handleExistingKYC = async (email,idempotencyKey,kyc_link_id,customer_id,ky
                                     }
                                 });
                                 if(customerApiResponse.status=200){
-                                    const {first_name,last_name,new_email} = customerApiResponse.data;
+                                    const {first_name,last_name} = customerApiResponse.data;
+                                    const new_email = customerApiResponse.data.email;
                                     const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=? where id=?;",[first_name,last_name,new_email,kyc_status,customer_id]);
                                     if(updatedCustomerResponse[0].affectedRows>0){
                                         return {
@@ -144,7 +145,8 @@ const handleExistingKYC = async (email,idempotencyKey,kyc_link_id,customer_id,ky
                                     }
                                 });
                                 if(customerApiResponse.status=200){
-                                    const {first_name,last_name,new_email} = customerApiResponse.data;
+                                    const {first_name,last_name} = customerApiResponse.data;
+                                    const new_email = customerApiResponse.data.email;
                                     const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=? where id=?;",[first_name,last_name,new_email,kyc_status,customer_id]);
                                     if(updatedCustomerResponse[0].affectedRows>0){
                                         return {
