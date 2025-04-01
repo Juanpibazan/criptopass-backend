@@ -120,15 +120,20 @@ const handleExistingKYC = async (email,idempotencyKey,kyc_link_id,customer_id,ky
     }
 };
 
-const createKYCLlink = async (idempotencyKey, fullName, email, type, apiKey)=>{
+const createKYCLlink = async (idempotencyKey, fullName, email, type, endorsements, apiKey)=>{
     try {
         const response = await axios({
             method:'post',
             url:'https://api.bridge.xyz/v0/kyc_links',
-            data:{
+            data: !endorsements ? {
                 full_name: fullName,
                 email,
                 type
+            } : {
+                full_name: fullName,
+                email,
+                type,
+                endorsements
             },
             headers:{
                 "Content-Type":"application/json",
@@ -213,11 +218,11 @@ const createKYCLlink = async (idempotencyKey, fullName, email, type, apiKey)=>{
 //solicitud POST para crear un kyc_link
 
 router.post('/kyc_links', verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
-    const {fullName, email, type} = req.body;
+    const {fullName, email, type, endorsements} = req.body;
     //const idempotencyKey = req.header("Idempotency-Key");
     const idempotencyKey = req.idempotencyKey;
     //const response = await createKYCLlink(createUUID(),fullName,email,type, process.env.BRIDGE_API_KEY);
-    const response = await createKYCLlink(idempotencyKey,fullName,email,type, process.env.BRIDGE_API_KEY);
+    const response = endorsements==[] ? await createKYCLlink(idempotencyKey,fullName,email,type, process.env.BRIDGE_API_KEY) : createKYCLlink(idempotencyKey,fullName,email,type, endorsements, process.env.BRIDGE_API_KEY);
     if(response.status){
         res.status(response.status).json({
             status:response.status===200 ? true : false,
