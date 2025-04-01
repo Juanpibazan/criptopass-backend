@@ -38,6 +38,8 @@ const verifyTokenMiddleware = (req,res,next)=>{
 const handleExistingKYC = async (email,idempotencyKey,kyc_link_id,customer_id,kyc_link,tos_link,kyc_status,type,full_name,tos_status)=>{
     try {
         const pool = await connect();
+        const checkedExistingKYC = await pool.query("SELECT * FROM kyc_links where id=?;",[kyc_link_id]);
+        if(checkedExistingKYC[0].length===0){
         const insertedKYCResponse = await pool.query("INSERT INTO kyc_links(id,idempotency_key,full_name,email,type,kyc_link,tos_link,kyc_status,tos_status) VALUES (?,?,?,?,?,?,?,?,?);",[kyc_link_id,idempotencyKey,full_name,email,type,kyc_link,tos_link,kyc_status,tos_status]);
         if(insertedKYCResponse[0].affectedRows===1){
             const existingIdempotencyKey = await pool.query("SELECT * FROM idempotency_keys where email=? and endpoint='/kyc_links';",[email]);
@@ -109,7 +111,69 @@ const handleExistingKYC = async (email,idempotencyKey,kyc_link_id,customer_id,ky
                             msg:'Database error'
                         };
                     }
+        } else{
+            const existingIdempotencyKey = await pool.query("SELECT * FROM idempotency_keys where email=? and endpoint='/kyc_links';",[email]);
+            if(existingIdempotencyKey[0].length>0){
+                        const updateIdempotencyResponse = await pool.query("UPDATE idempotency_keys set customer_id=? where email=? and endpoint='/kyc_links';",[customer_id,email]);
+                        if(updateIdempotencyResponse[0].affectedRows>0){
+                            const foundCustomerResponse = await pool.query("SELECT * FROM customers where id=?;",[customer_id]);
+                            if(foundCustomerResponse[0].length===0){
+                                const insertedCustomerResponse = await pool.query("INSERT INTO customers (id,full_name,email,status,type) VALUES (?,?,?,?,?);",[customer_id,full_name,email,kyc_status,type]);
+                                const insertedUserResponse = await pool.query("UPDATE criptopass_users SET customer_id=?, kyc_status=? WHERE email=?;",[customer_id, kyc_status, email]);
+
+                                if(insertedCustomerResponse[0].affectedRows===1 && insertedUserResponse[0].affectedRows===1){
+                                    return {
+                                        status: 200,
+                                        msg:`Esta es la información para el kyc_link_id: ${kyc_link_id}`
+                                    };
+                                } else{
+                                    return {
+                                        status: 403,
+                                        msg:`Esta es la información para el kyc_link_id: ${kyc_link_id}. Hubo un problema al crear customer en la base de datos.`,
                 
+                                    };
+                                }
+                                
+                            } else{
+                                const customerApiResponse = await axios({
+                                    method:'get',
+                                    url:`https://api.bridge.xyz/v0/customers/${customer_id}`,
+                                    headers:{
+                                        "Content-Type":"application/json",
+                                        "Api-Key": `${process.env.BRIDGE_API_KEY}`
+                                    }
+                                });
+                                if(customerApiResponse.status=200){
+                                    const {first_name,last_name,new_email} = customerApiResponse.data;
+                                    const updatedCustomerResponse = await pool.query("UPDATE customers SET first_name=?,last_name=?,email=?,status=? where id=?;",[first_name,last_name,new_email,kyc_status,customer_id]);
+                                    if(updatedCustomerResponse[0].affectedRows>0){
+                                        return {
+                                            status: 200,
+                                            msg:`Esta es la información para el kyc_link_id: ${kyc_link_id}. Se actualizaron datos del customer en la base de datos.`
+                                        };
+                                    } else{
+                                        return {
+                                            status:403,
+                                            msg:`Esta es la información para el kyc_link_id: ${kyc_link_id}. Hubo un problema al actualizar los datos del customer en la base de datos.`
+                                        };
+                                    }
+                                } else{
+                                    return {
+                                        status: customerApiResponse.status,
+                                        msg:`Esta es la información para el kyc_link_id: ${kyc_link_id}. Hubo un problema al traer información del customer`
+                                    };
+                                }
+
+                            }
+                        } else{
+                            console.log('Ocurrió un error: Record not updated inside the idempotency_keys table.');
+                            return {
+                                status: 403,
+                                msg:`Esta es la información para el kyc_link_id: ${kyc_link_id}, pero no se logró guardar la info de la idempotency key en la base de datos`
+                            }; 
+                        }
+                    }          
+        }         
     } catch(e){
         console.log('Ocurrió un error: ',e);
         return {
@@ -125,7 +189,7 @@ const createKYCLlink = async (idempotencyKey, fullName, email, type, endorsement
         const response = await axios({
             method:'post',
             url:'https://api.bridge.xyz/v0/kyc_links',
-            data: !endorsements ? {
+            data: endorsements.lenght===0 ? {
                 full_name: fullName,
                 email,
                 type
@@ -222,7 +286,7 @@ router.post('/kyc_links', verifyTokenMiddleware,idempotencyMiddleware, async (re
     //const idempotencyKey = req.header("Idempotency-Key");
     const idempotencyKey = req.idempotencyKey;
     //const response = await createKYCLlink(createUUID(),fullName,email,type, process.env.BRIDGE_API_KEY);
-    const response = endorsements==[] ? await createKYCLlink(idempotencyKey,fullName,email,type, process.env.BRIDGE_API_KEY) : createKYCLlink(idempotencyKey,fullName,email,type, endorsements, process.env.BRIDGE_API_KEY);
+    const response = await createKYCLlink(idempotencyKey,fullName,email,type, endorsements, process.env.BRIDGE_API_KEY);
     if(response.status){
         res.status(response.status).json({
             status:response.status===200 ? true : false,
