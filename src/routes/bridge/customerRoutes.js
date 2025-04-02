@@ -490,7 +490,7 @@ router.get('/kyc_links/', verifyTokenMiddleware, async (req,res)=>{
 
 //solicitud GET para retornar info referente a un customer_id específico
 
-router.get('/:customer_id', verifyTokenMiddleware,async (req,res)=>{
+router.get('/:customer_id', verifyTokenMiddleware, async (req,res)=>{
     const {customer_id} = req.params;
     try {
         const apiResponse = await axios({
@@ -503,11 +503,22 @@ router.get('/:customer_id', verifyTokenMiddleware,async (req,res)=>{
         });
         if(apiResponse.status === 200){
             console.log(apiResponse);
-            res.status(apiResponse.status).json({
-                status: true,
-                msg: 'Cliente encontrado',
-                data: apiResponse.data
-            });
+            const sepa_endorsement = apiResponse.data.endorsements.find((item)=>item.name==='sepa');
+            const pool = await connect();
+            const updatedUserResponse = await pool.query("UPDATE criptopass_users set sepa_kyc_status=? where customer_id=?;",[sepa_endorsement.status,customer_id]);
+            if(updatedUserResponse[0].affectedRows>0){
+                res.status(apiResponse.status).json({
+                    status: true,
+                    msg: 'Cliente encontrado',
+                    data: apiResponse.data
+                });
+            }else{
+                res.status(apiResponse.status).json({
+                    status: true,
+                    msg: 'Cliente encontrado pero no se pudo actualizar SEPA KYC status',
+                    data: apiResponse.data
+                });
+            }
         }
         else{
             console.log(apiResponse);
@@ -544,6 +555,7 @@ router.get('/sepa_kyc_links/:customer_id', verifyTokenMiddleware,async (req,res)
         if(generatedSepaKycLink.status===200){
             const updatedKycLinkRow = await pool.query("UPDATE kyc_links set sepa_kyc_link=? where customer_id=?;",[generatedSepaKycLink.data.url,customer_id]);
             if(updatedKycLinkRow[0].affectedRows>0){
+                const updatedUser = await pool.query("",[]);
                 res.status(200).json({
                     status: true,
                     msg:`KYC Link generado para SEPA para el customer: ${customer_id}`,
