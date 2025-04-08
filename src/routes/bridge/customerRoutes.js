@@ -210,7 +210,7 @@ const createKYCLlink = async (idempotencyKey, fullName, email, type, endorsement
             if(response.status===200 || response.status===201){
                 console.log(response.data);
                 const pool = await connect();
-                const queryResponse = await pool.query("INSERT INTO kyc_links(id,idempotency_key,full_name,email,type,kyc_link,kyc_status,tos_status) VALUES (?,?,?,?,?,?,?);",[response.data.id,idempotencyKey,fullName,email,type,response.data.kyc_link,response.data.kyc_status,response.data.tos_status]);
+                const queryResponse = await pool.query("INSERT INTO kyc_links(id,idempotency_key,full_name,email,type,kyc_link,tos_link,kyc_status,tos_status) VALUES (?,?,?,?,?,?,?,?,?);",[response.data.id,idempotencyKey,fullName,email,type,response.data.kyc_link,response.data.tos_link,response.data.kyc_status,response.data.tos_status]);
                 if(queryResponse[0].affectedRows===1){
                     console.log(`KYC link ${response.data.id} added to table!`);
                     const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, email, endpoint) VALUES (?,?,'/kyc_links');",[idempotencyKey,email]);
