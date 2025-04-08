@@ -191,7 +191,7 @@ const createKYCLlink = async (idempotencyKey, fullName, email, type, endorsement
         const response = await axios({
             method:'post',
             url:'https://api.bridge.xyz/v0/kyc_links',
-            data: endorsements.lenght===0 ? {
+            data: endorsements.length===0 ? {
                 full_name: fullName,
                 email,
                 type
