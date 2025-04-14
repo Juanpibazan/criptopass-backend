@@ -648,7 +648,7 @@ async function idempotencyMiddleware(req, res, next) {
 router.post('/:customer_id/external_accounts',verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
     const idempotencyKey = req.idempotencyKey;
     const {customer_id} = req.params;
-    const {bank_name,account_number,routing_number,account_name,account_owner_name,address} = req.body;
+    const {bank_name,account_number,routing_number,account_name,account_owner_name,address,account_type} = req.body;
     try{
         const apiResponse = await axios({
             method:'post',
@@ -676,8 +676,8 @@ router.post('/:customer_id/external_accounts',verifyTokenMiddleware,idempotencyM
             const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/external_accounts');",[idempotencyKey,customer_id]);
             if(idempotencyInsertResponse[0].affectedRows===1){
                 console.log('Record inserted into idempotency_keys table!');
-                const externalAccountInsertResponse = address.street_line_2 !== '' ? await pool.query("INSERT INTO external_accounts (id,bank_name,account_number,routing_number,account_name,account_owner_name,street_line_1,street_line_2,city,state,postal_code,country,customer_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,bank_name,account_number,routing_number,account_name,account_owner_name,address.street_line_1, address.street_line_2, address.city, address.state, address.postal_code, address.country,customer_id])
-                                                    : await pool.query("INSERT INTO external_accounts (id,bank_name,account_number,routing_number,account_name,account_owner_name,street_line_1,city,state,postal_code,country,customer_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,bank_name,account_number,routing_number,account_name,account_owner_name,address.street_line_1, address.city, address.state, address.postal_code, address.country,customer_id]) ;
+                const externalAccountInsertResponse = address.street_line_2 !== '' ? await pool.query("INSERT INTO external_accounts (id,bank_name,account_number,routing_number,account_name,account_owner_name,street_line_1,street_line_2,city,state,postal_code,country,customer_id,account_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,bank_name,account_number,routing_number,account_name,account_owner_name,address.street_line_1, address.street_line_2, address.city, address.state, address.postal_code, address.country,customer_id,account_type])
+                                                    : await pool.query("INSERT INTO external_accounts (id,bank_name,account_number,routing_number,account_name,account_owner_name,street_line_1,city,state,postal_code,country,customer_id,account_type) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,bank_name,account_number,routing_number,account_name,account_owner_name,address.street_line_1, address.city, address.state, address.postal_code, address.country,customer_id,account_type]) ;
                 if(externalAccountInsertResponse[0].affectedRows===1){
                     console.log('Record inserted into the external_accounts table!');
                     res.status(apiResponse.status).json({
@@ -758,7 +758,7 @@ router.post('/:customer_id/external_accounts/sepa',verifyTokenMiddleware,idempot
             const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/external_accounts');",[idempotencyKey,customer_id]);
             if(idempotencyInsertResponse[0].affectedRows===1){
                 console.log('Record inserted into idempotency_keys table!');
-                const externalAccountInsertResponse = await pool.query("INSERT INTO external_accounts (id,account_number,account_owner_name,street_line_1,street_line_2,city,state,postal_code,country,customer_id,account_owner_type,first_name,last_name,business_name,iso_country_code,bic) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,account_number,account_owner_name,address.street_line_1, address.street_line_2, address.city, address.state, address.postal_code, address.country,customer_id,account_owner_type,first_name,last_name,business_name,iso_country_code,bic]);
+                const externalAccountInsertResponse = await pool.query("INSERT INTO external_accounts (id,account_number,account_owner_name,street_line_1,street_line_2,city,state,postal_code,country,customer_id,account_type,account_owner_type,first_name,last_name,business_name,iso_country_code,bic) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,account_number,account_owner_name,address.street_line_1, address.street_line_2, address.city, address.state, address.postal_code, address.country,customer_id,account_type,account_owner_type,first_name,last_name,business_name,iso_country_code,bic]);
                 if(externalAccountInsertResponse[0].affectedRows===1){
                     console.log('Record inserted into the external_accounts table!');
                     res.status(apiResponse.status).json({
