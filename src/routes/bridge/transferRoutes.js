@@ -265,7 +265,7 @@ router.get('/senders/:customer_id',verifyTokenMiddleware, async (req,res)=>{
         const pool = await connect();
         const transfersDbResponse = await pool.query("SELECT a.*, b.full_name FROM transfers a left join customers b on a.on_behalf_of=b.id WHERE a.from_customer_id=? order by a.created_at desc limit ?;",[customer_id,limit]);
         if(transfersDbResponse[0].length>0){
-            var awaitingFundsTransfers = transfersDbResponse[0].filter((item)=>item.state==='awaiting_funds');
+            var awaitingFundsTransfers = transfersDbResponse[0].filter((item)=>{return (item.state==='awaiting_funds' || item.state==='payment_submitted')});
             //console.log('LENGTH: ', awaitingFundsTransfers.length);
             const transfersNotUpdated=[];
             for (let index = 0; index < awaitingFundsTransfers.length; index++) {
