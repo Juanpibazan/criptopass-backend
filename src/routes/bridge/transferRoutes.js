@@ -87,7 +87,11 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,fro
     const {source_currency,source_payment_rail,
         //from_address
     } = source;
-    const {destination_currency, destination_payment_rail, external_account_id} = destination;
+    const {destination_currency,
+        destination_payment_rail,
+        external_account_id,
+        wire_message=null
+    } = destination;
 
     try {
         const pool = await connect();
@@ -104,7 +108,8 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,fro
                 destination:{
                     currency: destination_currency,
                     payment_rail:destination_payment_rail,
-                    external_account_id
+                    external_account_id,
+                    wire_message
                 },
                 amount,
                 on_behalf_of,
@@ -123,7 +128,7 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,fro
             console.log('This the response for creating a transfer:',apiResponse.data);
             const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/transfers');",[idempotencyKey,on_behalf_of]);
             if(idempotencyInsertResponse[0].affectedRows===1){
-                const transferInsertResponse = await pool.query("INSERT INTO transfers(id,state,amount, developer_fee,on_behalf_of,source_currency,source_payment_rail,destination_currency,destination_payment_rail,external_account_id,to_address,final_amount,from_customer_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?);",
+                const transferInsertResponse = await pool.query("INSERT INTO transfers(id,state,amount, developer_fee,on_behalf_of,source_currency,source_payment_rail,destination_currency,destination_payment_rail,external_account_id,to_address,final_amount,from_customer_id,wire_message) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?);",
                     [apiResponse.data.id,
                       apiResponse.data.state,
                       parseFloat(apiResponse.data.amount),
@@ -136,7 +141,8 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,fro
                       external_account_id,
                       apiResponse.data.source_deposit_instructions.to_address,
                       apiResponse.data.receipt.final_amount,
-                      from_customer_id
+                      from_customer_id,
+                      wire_message
                     ]);
                 if(transferInsertResponse[0].affectedRows===1){
                         console.log('Se insertaron correctamente los registros en ambas tablas(idempotency_keys y transfers');
