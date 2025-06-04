@@ -177,11 +177,20 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,fro
             }
         }
     } catch(e){
-        console.log(e);
+        const {code,message,source} = e;
+        console.log(e,{
+                code,
+                message,
+                source
+            });
         return {
             status: 500,
-            msg: 'Ocurrió un error',
-            data: e
+            msg: `Ocurrió un error: ${message}`,
+            data: {
+                code,
+                message,
+                source
+            }
         }
     }
 
