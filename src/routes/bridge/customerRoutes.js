@@ -725,7 +725,7 @@ router.post('/:customer_id/external_accounts',verifyTokenMiddleware,idempotencyM
 router.post('/:customer_id/external_accounts/sepa',verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
     const idempotencyKey = req.idempotencyKey;
     const {customer_id} = req.params;
-    const {bic,account_number,account_type, account_owner_type,first_name,last_name,business_name,account_owner_name,address,iso_country_code} = req.body;
+    const {bic,account_number,account_type, account_owner_type,first_name=null,last_name=null,business_name=null,account_owner_name,address,iso_country_code} = req.body;
     try{
         const apiResponse = await axios({
             method:'post',
@@ -741,7 +741,7 @@ router.post('/:customer_id/external_accounts/sepa',verifyTokenMiddleware,idempot
                 account_owner_type,
                 first_name,
                 last_name,
-                business_name: business_name !=='' ? business_name : null,
+                business_name,
                 account_owner_name,
                 address
             },
