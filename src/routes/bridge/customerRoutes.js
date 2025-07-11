@@ -725,7 +725,7 @@ router.post('/:customer_id/external_accounts',verifyTokenMiddleware,idempotencyM
 router.post('/:customer_id/external_accounts/sepa',verifyTokenMiddleware,idempotencyMiddleware, async (req,res)=>{
     const idempotencyKey = req.idempotencyKey;
     const {customer_id} = req.params;
-    const {bic,account_number,account_type, account_owner_type,first_name=null,last_name=null,business_name=null,account_owner_name,address,iso_country_code} = req.body;
+    const {bic,account_number,bank_name,account_type, account_owner_type,first_name=null,last_name=null,business_name=null,account_owner_name,address,iso_country_code} = req.body;
     try{
         const apiResponse = await axios({
             method:'post',
@@ -758,7 +758,7 @@ router.post('/:customer_id/external_accounts/sepa',verifyTokenMiddleware,idempot
             const idempotencyInsertResponse = await pool.query("INSERT INTO idempotency_keys (idempotency_key, customer_id, endpoint) VALUES (?,?,'/external_accounts');",[idempotencyKey,customer_id]);
             if(idempotencyInsertResponse[0].affectedRows===1){
                 console.log('Record inserted into idempotency_keys table!');
-                const externalAccountInsertResponse = await pool.query("INSERT INTO external_accounts (id,account_number,account_owner_name,street_line_1,street_line_2,city,state,postal_code,country,customer_id,account_type,account_owner_type,first_name,last_name,business_name,iso_country_code,bic) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,account_number,account_owner_name,address.street_line_1, address.street_line_2, address.city, address.state, address.postal_code, address.country,customer_id,account_type,account_owner_type,first_name,last_name,business_name,iso_country_code,bic]);
+                const externalAccountInsertResponse = await pool.query("INSERT INTO external_accounts (id,bank_name,account_number,account_owner_name,street_line_1,street_line_2,city,state,postal_code,country,customer_id,account_type,account_owner_type,first_name,last_name,business_name,iso_country_code,bic) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);",[apiResponse.data.id,bank_name,account_number,account_owner_name,address.street_line_1, address.street_line_2, address.city, address.state, address.postal_code, address.country,customer_id,account_type,account_owner_type,first_name,last_name,business_name,iso_country_code,bic]);
                 if(externalAccountInsertResponse[0].affectedRows===1){
                     console.log('Record inserted into the external_accounts table!');
                     res.status(apiResponse.status).json({
