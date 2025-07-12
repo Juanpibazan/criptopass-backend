@@ -874,7 +874,7 @@ router.get('/find/:email', verifyTokenMiddleware, async (req,res)=>{
     const {email} = req.params;
     try{
         const pool = await connect();
-        const foundCustomerResponse = await pool.query("Select a.*, b.id as external_account_id, b.bank_name , b.routing_number, b.account_number, b.account_name as account_type ,b.account_owner_name from customers a inner join external_accounts b on a.id=b.customer_id  where a.email like ?;",[`%${email}%`]);
+        const foundCustomerResponse = await pool.query("Select a.*, b.id as external_account_id, b.bank_name , b.routing_number, b.account_number, b.account_name as account_type ,b.account_owner_name, b.bic from customers a inner join external_accounts b on a.id=b.customer_id  where a.email like ?;",[`%${email}%`]);
         if(foundCustomerResponse[0].length===0){
             res.status(200).json({
                 status:true,

@@ -140,7 +140,7 @@ const transfer = async (source,destination,amount,on_behalf_of,developer_fee,fro
                       destination_payment_rail,
                       external_account_id,
                       apiResponse.data.source_deposit_instructions.to_address,
-                      apiResponse.data.receipt.final_amount,
+                      apiResponse.data.receipt.final_amount ? apiResponse.data.receipt.final_amount : apiResponse.data.subtotal_amount,
                       from_customer_id,
                       wire_message
                     ]);
