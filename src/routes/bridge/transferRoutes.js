@@ -328,8 +328,9 @@ router.get('/senders/:customer_id',verifyTokenMiddleware, async (req,res)=>{
     }
 });
 
-router.get('/exchange-rate',verifyTokenMiddleware , async (req,res)=>{
-    const {from,to} = req.query;
+router.get('/exchange-rate/:from',verifyTokenMiddleware , async (req,res)=>{
+    const {from} = req.params;
+    const {to} = req.query;
     try{
         const apiResponse = await axios({
             method: 'get',
@@ -349,7 +350,7 @@ router.get('/exchange-rate',verifyTokenMiddleware , async (req,res)=>{
         } else{
             res.status(apiResponse.status).json({
                 status: false,
-                msg:'Oucrrió un error',
+                msg:'Ocurrió un error',
                 data: data.message
             });
         }
