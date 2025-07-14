@@ -328,6 +328,41 @@ router.get('/senders/:customer_id',verifyTokenMiddleware, async (req,res)=>{
     }
 });
 
+router.get('/exchange-rate',verifyTokenMiddleware , async (req,res)=>{
+    const {from,to} = req.query;
+    try{
+        const apiResponse = await axios({
+            method: 'get',
+            url: `https://api.bridge.xyz/v0/exchange_rates?from=${from}&to=${to}`,
+            headers:{
+                    "Content-Type":"application/json",
+                    "Api-Key": process.env.BRIDGE_API_KEY
+            }
+        });
+        const {data}= apiResponse;
+        if(apiResponse.status===200){
+                res.status(200).json({
+                    status: true,
+                    msg:'Tipo de Cambio obtenido correctamente',
+                    data
+                });
+        } else{
+            res.status(apiResponse.status).json({
+                status: false,
+                msg:'Oucrrió un error',
+                data: data.message
+            });
+        }
+    }
+    catch(e){
+        res.status(500).json({
+            status: false,
+            msg:'Ocurrió un error',
+            data: e
+        });
+    }
+});
+
 
 router.post('/test', (req,res)=>{
     const {testField} = req.body;
